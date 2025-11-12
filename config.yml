@@ -1,0 +1,213 @@
+# ========================================
+# Caption Extractor Configuration
+# ========================================
+
+# Logging Configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/caption_extractor.log"
+
+# PaddleOCR Model Configuration
+model:
+  # Model storage location
+  model_dir: "models"
+  # OCR detection model (PP-OCRv5)
+  det_model_name: "ch_PP-OCRv4_det"
+  # OCR recognition model (PP-OCRv5) 
+  rec_model_name: "ch_PP-OCRv4_rec"
+  # Use angle classification
+  use_angle_cls: true
+  # Language support
+  lang: "en"
+  # Use GPU if available (disabled for stability)
+  use_gpu: false
+
+# Data Configuration
+data:
+  # Input folder containing images
+  input_folder: "data"
+  # Supported image formats
+  supported_formats: [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
+  # Output YAML file will be saved in same folder as image
+
+# Processing Configuration
+processing:
+  # Number of threads for concurrent processing (disabled for PaddleOCR stability)
+  num_threads: 1
+  # Batch size for processing
+  batch_size: 10
+  # Show progress bar
+  show_progress: true
+  # Enable timing for each image
+  enable_timing: true
+
+# Performance Configuration
+performance:
+  # Maximum image size (width, height) for processing
+  max_image_size: [2048, 2048]
+  # Resize images if they exceed max size
+  auto_resize: true
+  # Image quality for resizing (1-100)
+  resize_quality: 85
+
+# ========================================
+# Enhanced OCR Configuration
+# ========================================
+
+# OCR Engine Configuration
+ocr:
+  # Basic settings
+  lang: "en"  # Language: en, ch, fr, german, korean, japan, etc.
+  use_gpu: false  # Enable GPU acceleration (requires paddlepaddle-gpu)
+  use_angle_cls: true  # Enable text angle classification (improves accuracy for rotated text)
+  show_log: false  # Show detailed PaddleOCR logs
+  model_dir: null  # Custom model directory path (optional)
+  
+  # Minimum confidence threshold for text recognition (0.0 - 1.0)
+  # Higher values = more strict, fewer false positives
+  min_confidence: 0.5
+  
+  # Detection Parameters (Text Detection Stage)
+  detection:
+    # Detection threshold for binarization (0.0 - 1.0)
+    # Lower = detect more text regions (more sensitive)
+    # Higher = detect only clear text regions (more precise)
+    det_db_thresh: 0.3
+    
+    # Box threshold for filtering detected regions (0.0 - 1.0)
+    # Higher = stricter filtering of detected boxes
+    det_db_box_thresh: 0.5
+    
+    # Unclip ratio for text region expansion (1.0 - 2.0)
+    # Higher = larger text boxes (useful for touching characters)
+    det_db_unclip_ratio: 1.6
+    
+    # Use dilation on detection mask (improves detection of small text)
+    use_dilation: true
+    
+    # Score mode: 'fast' or 'slow'
+    # 'fast' = faster but may miss some text
+    # 'slow' = more accurate but slower
+    det_db_score_mode: "fast"
+  
+  # Recognition Parameters (Text Recognition Stage)
+  recognition:
+    # Batch size for recognition (higher = faster on GPU, may use more memory)
+    rec_batch_num: 6
+    
+    # Maximum text length for recognition
+    max_text_length: 25
+    
+    # Recognition algorithm (default: CRNN)
+    # Options: CRNN, RARE, SRN, NRTR, SAR, SEED, SVTR, ViTSTR, ABINet, etc.
+    rec_algorithm: "CRNN"
+  
+  # Classification Parameters (Angle Classification Stage)
+  classification:
+    # Batch size for angle classification
+    cls_batch_num: 6
+    
+    # Classification threshold (0.0 - 1.0)
+    # Text with rotation confidence above this will be rotated
+    cls_thresh: 0.9
+
+# Image Preprocessing Configuration
+preprocessing:
+  # Automatic resize for large images
+  auto_resize: true
+  max_image_size: [2048, 2048]  # [width, height] in pixels
+  
+  # Convert to grayscale (can improve accuracy for black/white documents)
+  grayscale: true
+  
+  # Brightness adjustment (0.5 = darker, 1.0 = normal, 1.5 = brighter)
+  brightness: 1.0
+  
+  # Contrast adjustment (0.5 = lower, 1.0 = normal, 2.0 = higher)
+  contrast: 1.0
+  
+  # Sharpening (improves edge detection)
+  sharpen: true
+  sharpen_strength: 1.0  # Higher = more sharpening (0.5 - 2.0)
+  
+  # Denoise (removes image noise/grain)
+  denoise: true
+  denoise_strength: 10  # Higher = more denoising (5 - 30)
+  
+  # Adaptive thresholding (converts to binary black/white)
+  # Very effective for poor quality scans or photos
+  adaptive_threshold: true
+  threshold_block_size: 11  # Must be odd number (3, 5, 7, 9, 11, etc.)
+  threshold_c: 2  # Constant subtracted from mean
+  
+  # Deskew image (corrects rotation)
+  deskew: false
+  
+  # Remove borders/margins
+  remove_borders: false
+  border_size: 10  # Pixels to remove from each side
+
+# Post-processing Configuration
+post_processing:
+  # Minimum text length to keep (filters out noise)
+  min_text_length: 1
+  
+  # Remove special characters
+  remove_special_chars: false
+  # Characters to keep if remove_special_chars is true
+  allowed_chars: ".,!?-:;()[]{}'\""
+  
+  # Strip leading/trailing whitespace
+  strip_whitespace: true
+  
+  # Convert all text to lowercase
+  lowercase: false
+  
+  # Remove duplicate text entries
+  remove_duplicates: false
+
+# Output Formatting Configuration
+formatting:
+  # Separator between text lines when combining into full_text
+  line_separator: " "  # Options: ' ', '\n', ', ', etc.
+
+# ========================================
+# Preset Configurations for Common Use Cases
+# ========================================
+
+# For high-quality scans:
+# - Keep default settings
+# - Consider: min_confidence: 0.6, det_db_thresh: 0.3
+
+# For photos/mobile camera images:
+# - Enable: sharpen: true, denoise: true
+# - Adjust: brightness and contrast as needed
+# - Consider: adaptive_threshold: true
+
+# For poor quality/low resolution:
+# - Lower: det_db_thresh: 0.2, min_confidence: 0.4
+# - Enable: sharpen: true, denoise: true
+# - Increase: det_db_unclip_ratio: 1.8
+
+# For documents with small text:
+# - Enable: use_dilation: true
+# - Increase: det_db_unclip_ratio: 1.8
+# - Enable: sharpen: true
+
+# For rotated/skewed documents:
+# - Enable: use_angle_cls: true, deskew: true
+# - Set: cls_thresh: 0.9
+
+# For documents with colored backgrounds:
+# - Enable: adaptive_threshold: true
+# - Adjust: brightness and contrast
+
+# For forms/structured documents:
+# - Enable: remove_borders: true
+# - Set: min_text_length: 2 (to filter field markers)
+
+# Performance optimization:
+# - Reduce: max_image_size for faster processing
+# - Reduce: rec_batch_num if memory constrained
+# - Disable: use_angle_cls if documents are always upright
