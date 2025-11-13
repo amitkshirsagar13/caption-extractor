@@ -324,6 +324,46 @@ report = image_processor.process_images_batch(image_files)
 print(f"Batch report: {report}")
 ```
 
+### Step-based batch processing (LLM / agent friendly)
+
+If you run local LLMs or agent models and want to avoid loading/unloading
+models per image, use the step-based batch processor. In this mode the
+pipeline will:
+
+1. Load the model(s) needed for Step 1 (e.g., OCR or image agent),
+2. Process all images through Step 1,
+3. Unload Step 1 model(s), then load model(s) for Step 2,
+4. Process all images through Step 2, and so on.
+
+This reduces repeated model initialization and is recommended for
+large datasets when using local LLMs.
+
+How to run:
+
+```bash
+# Step-based mode (preferred for local LLMs / agents)
+PYTHONPATH=src python -m caption_extractor.main --batch-mode step
+
+# Optionally override per-step threads
+PYTHONPATH=src python -m caption_extractor.main --batch-mode step --threads 2
+```
+
+Configuration (example `config.yml` snippet):
+
+```yaml
+batch_processing:
+  mode: "step"                # 'image' or 'step'
+  num_threads_per_step: 2      # Threads used while processing each step
+  show_progress: true          # Show per-step progress bars (requires tqdm)
+```
+
+Notes:
+- Use `--batch-mode image` to run the original behavior (process each image
+  through all steps before moving to the next image).
+- The step-based mode still uses the same state files/YAML output; any
+  completed steps will be skipped on subsequent runs.
+
+
 ### Integration with Other Tools
 
 The YAML output format makes it easy to integrate with other tools:

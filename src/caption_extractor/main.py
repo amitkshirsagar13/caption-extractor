@@ -8,6 +8,11 @@ from pathlib import Path
 from .config_manager import ConfigManager
 from .ocr_processor import OCRProcessor
 from .image_processor import ImageProcessor
+from .ollama_client import OllamaClient
+from .image_agent import ImageAgent
+from .text_agent import TextAgent
+from .translator_agent import TranslatorAgent
+from .batch_processor_by_steps import BatchProcessorBySteps
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
@@ -51,6 +56,17 @@ def setup_argument_parser() -> argparse.ArgumentParser:
         action="version",
         version="caption-extractor 0.1.0"
     )
+    parser.add_argument(
+        "--batch-mode",
+        type=str,
+        choices=["image", "step"],
+        default="step",
+        help=(
+            "Batch processing mode: 'image' (default) processes each image"
+            " through all steps, 'step' processes all images through each"
+            " step (better for local LLM models)"
+        ),
+    )
     
     return parser
 
@@ -87,51 +103,160 @@ def main() -> int:
             config_manager.config['processing']['num_threads'] = args.threads
             logger.info(f"Number of threads overridden to: {args.threads}")
         
+        # Get pipeline configuration
+        pipeline_config = config_manager.config.get('pipeline', {})
+        enable_ocr = pipeline_config.get('enable_ocr', True)
+        enable_image_agent = pipeline_config.get('enable_image_agent', True)
+        enable_text_agent = pipeline_config.get('enable_text_agent', True)
+        
         # Initialize OCR processor
-        logger.info("Initializing OCR processor...")
-        ocr_config = config_manager.get_ocr_config()
-        ocr_processor = OCRProcessor(ocr_config)
+        ocr_processor = None
+        if enable_ocr:
+            logger.info("Initializing OCR processor...")
+            ocr_config = config_manager.get_ocr_config()
+            ocr_processor = OCRProcessor(ocr_config)
+        else:
+            logger.info("OCR processing is disabled")
         
-        # Initialize image processor
-        logger.info("Initializing image processor...")
-        image_processor = ImageProcessor(config_manager, ocr_processor)
+        # Initialize Ollama client for AI agents
+        ollama_client = None
+        if enable_image_agent or enable_text_agent:
+            logger.info("Initializing Ollama client...")
+            try:
+                ollama_client = OllamaClient(config_manager.config)
+            except Exception as e:
+                logger.warning(f"Failed to initialize Ollama client: {e}")
+                logger.warning("AI agents will be disabled")
+                enable_image_agent = False
+                enable_text_agent = False
         
-        # Get image files from input folder
+        # Initialize Image Agent
+        image_agent = None
+        if enable_image_agent and ollama_client:
+            logger.info("Initializing Image Agent...")
+            try:
+                image_agent = ImageAgent(config_manager.config, ollama_client)
+            except Exception as e:
+                logger.warning(f"Failed to initialize Image Agent: {e}")
+                image_agent = None
+        
+        # Initialize Text Agent
+        text_agent = None
+        if enable_text_agent and ollama_client:
+            logger.info("Initializing Text Agent...")
+            try:
+                text_agent = TextAgent(config_manager.config, ollama_client)
+            except Exception as e:
+                logger.warning(f"Failed to initialize Text Agent: {e}")
+                text_agent = None
+
+        # Initialize Translator Agent (optional)
+        translator_agent = None
+        enable_translation = pipeline_config.get('enable_translation', False)
+        if enable_translation and ollama_client:
+            logger.info("Initializing Translator Agent...")
+            try:
+                translator_agent = TranslatorAgent(
+                    config_manager.config, ollama_client
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize Translator Agent: {e}")
+                translator_agent = None
+        
+        # Determine processing mode
         input_folder = config_manager.get_input_folder()
         logger.info(f"Scanning for images in: {input_folder}")
-        image_files = image_processor.get_image_files(input_folder)
+
+        if args.batch_mode == 'step':
+            # Allow overriding threads for per-step processing
+            if args.threads:
+                config_manager.config.setdefault('batch_processing', {})[
+                    'num_threads_per_step'
+                ] = args.threads
+
+            logger.info("Initializing step-based batch processor...")
+            batch_processor = BatchProcessorBySteps(
+                config_manager,
+                ocr_processor,
+                image_agent,
+                text_agent,
+                translator_agent,
+            )
+
+            image_files = batch_processor.get_image_files(input_folder)
+        else:
+            # Initialize image processor (image-by-image)
+            logger.info("Initializing image processor...")
+            image_processor = ImageProcessor(
+                config_manager,
+                ocr_processor,
+                image_agent,
+                text_agent,
+                translator_agent,
+            )
+
+            image_files = image_processor.get_image_files(input_folder)
         
         if not image_files:
             logger.warning("No image files found to process")
             print(f"No image files found in: {input_folder}")
-            print(f"Supported formats: {config_manager.get_supported_formats()}")
+            print(
+                "Supported formats: ",
+                ", ".join(config_manager.get_supported_formats()),
+            )
             return 1
         
         # Process images
-        logger.info(f"Found {len(image_files)} image files to process")
-        print(f"\nProcessing {len(image_files)} images from: {input_folder}")
-        print(f"Using {config_manager.get_num_threads()} threads")
-        
-        report = image_processor.process_images_batch(image_files)
-        
-        # Display summary
-        print("\n" + "="*60)
-        print("PROCESSING COMPLETED")
-        print("="*60)
-        print(f"Total images: {report['summary']['total_images']}")
-        print(f"Successfully processed: {report['summary']['successful_images']}")
-        print(f"Failed: {report['summary']['failed_images']}")
-        print(f"Success rate: {report['summary']['success_rate']}%")
-        print(f"Average time per image: {report['timing']['average_time_per_image']}s")
-        print(f"Total time: {report['timing']['batch_time']}s")
-        
-        if report['errors']:
-            print(f"\nErrors occurred during processing:")
-            for error in report['errors']:
-                print(f"  - {Path(error['image']).name}: {error['error']}")
-        
-        print(f"\nResults saved as .yml files in the same folders as the images.")
-        
+        logger.info("Found %s image files to process", len(image_files))
+        print("\nProcessing", len(image_files), "images from:", input_folder)
+        print("Using", config_manager.get_num_threads(), "threads")
+
+        if args.batch_mode == 'step':
+            print("Batch processing mode: STEP")
+            report = batch_processor.process_images_batch_by_steps(image_files)
+
+            # Step-mode report (summary of steps)
+            print("\n" + "=" * 60)
+            print("PROCESSING COMPLETED (STEP MODE)")
+            print("=" * 60)
+            print("Total images:", report['summary']['total_images'])
+            print("Steps completed:", ", ".join(report['summary']['steps']))
+            total_time_val = report['timing']['total_processing_time']
+            print("Total processing time:", total_time_val, "s")
+
+            if report.get('errors'):
+                print("\nErrors occurred during processing:")
+                for error in report['errors']:
+                    name = Path(error['image']).name
+                    print("  -", name + ":", error['error'])
+
+        else:
+            print("Batch processing mode: IMAGE")
+            report = image_processor.process_images_batch(image_files)
+
+            # Image-mode (original) report
+            print("\n" + "=" * 60)
+            print("PROCESSING COMPLETED")
+            print("=" * 60)
+            print("Total images:", report['summary']['total_images'])
+            print("Successfully processed:",
+                  report['summary']['successful_images'])
+            print("Failed:", report['summary']['failed_images'])
+            success_rate_str = str(report['summary']['success_rate']) + "%"
+            print("Success rate:", success_rate_str)
+            print("Average time per image:",
+                  str(report['timing']['average_time_per_image']) + "s")
+            print("Total time:", str(report['timing']['batch_time']) + "s")
+
+            if report['errors']:
+                print("\nErrors occurred during processing:")
+                for error in report['errors']:
+                    name = Path(error['image']).name
+                    print("  -", name + ":", error['error'])
+
+            print("\nResults saved as .yml files")
+            print("in the same folders as the images.")
+
         logger.info("Caption Extractor completed successfully")
         return 0
         

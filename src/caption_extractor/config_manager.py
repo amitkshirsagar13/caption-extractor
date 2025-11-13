@@ -4,8 +4,7 @@ import os
 import yaml
 import logging
 from typing import Dict, Any, List
-from pathlib import Path
-
+ 
 
 class ConfigManager:
     """Manages configuration loading and validation."""
@@ -47,8 +46,10 @@ class ConfigManager:
         log_format = log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         log_file = log_config.get('file', 'logs/caption_extractor.log')
         
-        # Create logs directory if it doesn't exist
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        # Create logs directory if it doesn't exist (guard empty paths)
+        log_dir = os.path.dirname(log_file)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
         
         # Setup logging
         logging.basicConfig(
@@ -70,9 +71,11 @@ class ConfigManager:
         data_dir = self.get_input_folder()
         os.makedirs(data_dir, exist_ok=True)
         
-        # Create logs directory
+        # Create logs directory (guard empty paths)
         log_file = self.config.get('logging', {}).get('file', 'logs/caption_extractor.log')
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        log_dir = os.path.dirname(log_file)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
     
     def get_model_dir(self) -> str:
         """Get model storage directory."""
@@ -109,3 +112,23 @@ class ConfigManager:
     def get_performance_config(self) -> Dict[str, Any]:
         """Get performance configuration."""
         return self.config.get('performance', {})
+
+    def get_image_resize_spec(self) -> Dict[str, Any]:
+        """Get image resize specification for the image agent.
+
+        Returns a dictionary with keys:
+            - enabled: bool (whether to resize before sending to image agent)
+            - max_size: [width, height]
+            - keep_aspect: bool (retain aspect ratio)
+            - interpolation: str (one of 'area', 'linear', 'cubic')
+
+        Defaults to resizing to 1024x1024 while keeping aspect ratio.
+        """
+        pipeline = self.config.get('pipeline', {})
+        default = {
+            'enabled': True,
+            'max_size': [1024, 1024],
+            'keep_aspect': True,
+            'interpolation': 'area'
+        }
+        return pipeline.get('image_resize', default)

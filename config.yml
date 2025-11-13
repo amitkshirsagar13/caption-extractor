@@ -8,6 +8,83 @@ logging:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/caption_extractor.log"
 
+# ========================================
+# AI Agent Configuration
+# ========================================
+
+# Processing Pipeline Control
+pipeline:
+  # Enable/disable individual processing components
+  enable_ocr: true          # OCR text extraction using PaddleOCR
+  enable_image_agent: true  # Image analysis using visual LLM
+  enable_text_agent: true   # Text correction/completion using LLM
+  enable_translation: true # Run translator agent to translate primary_text to English when needed
+  # Image resize specification applied before sending images to image agent.
+  # Default keeps aspect ratio and scales images to fit within 1024x1024.
+  image_resize:
+    enabled: true
+    max_size: [1024, 1024]
+    keep_aspect: true
+    # interpolation: one of 'area', 'linear', 'cubic'
+    interpolation: "area"
+
+# Ollama Configuration
+ollama:
+  # Ollama server connection
+  host: "http://localhost:11434"  # Ollama API endpoint
+  timeout: 120  # Request timeout in seconds
+  
+  # Model configuration
+  models:
+    # Visual model for image analysis (image agent)
+    vision_model: "qwen3-vl:4b"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud
+    
+    # Text model for text processing (text agent)
+    text_model: "mistral:latest"  # Suggested: llama3.2:latest, mistral:latest, gemma2:latest
+  
+  # Image Agent Configuration
+  image_agent:
+    # Temperature for generation (0.0 = deterministic, 1.0 = creative)
+    temperature: 0.7
+    # Maximum tokens to generate
+    max_tokens: 1000
+    # System prompt for image analysis
+    system_prompt: |
+      You are an expert image analyst. Analyze the provided image and extract:
+      1. Description: A detailed description of what you see
+      2. Scene: The type of scene or setting (e.g., indoor, outdoor, document, etc.)
+      3. Text: Any visible text in the image
+      4. Story: A brief narrative or context about the image
+      Provide your response in a structured format.
+  
+  # Text Agent Configuration
+  text_agent:
+    # Temperature for generation (0.0 = deterministic, 1.0 = creative)
+    temperature: 0.3
+    # Maximum tokens to generate
+    max_tokens: 2000
+    # System prompt for text correction
+    system_prompt: |
+      You are an expert text correction assistant. Your task is to:
+      1. Review the OCR-extracted text and image analysis
+      2. Correct any OCR errors or inconsistencies
+      3. Complete incomplete words or sentences
+      4. Improve readability while maintaining the original meaning
+      5. Provide a corrected and polished version of the text
+      Return only the corrected text without additional commentary.
+
+  # Translator Agent Configuration
+  translator_agent:
+    # Model used for translation (if not set, text_model will be used)
+    model: null
+    # Temperature for generation (0.0 = deterministic)
+    temperature: 0.0
+    # Maximum tokens to generate for translation
+    max_tokens: 1500
+    # System prompt for the translator
+    system_prompt: |
+      You are a translation assistant. Translate the provided text into fluent, natural English. If the text is already English, return it unchanged. Return only the translated text.
+
 # PaddleOCR Model Configuration
 model:
   # Model storage location
@@ -41,6 +118,18 @@ processing:
   show_progress: true
   # Enable timing for each image
   enable_timing: true
+
+# Batch processing options (step-based processing is LLM/agent friendly)
+batch_processing:
+  # Mode controls how batches are executed. Use 'image' for per-image
+  # processing (default). Use 'step' to process all images through each
+  # pipeline step in sequence (better for local LLMs / agents).
+  mode: "step"            # 'image' or 'step'
+  # Number of threads to use when processing a single step across the
+  # whole batch. If not set, the CLI --threads overrides this at runtime.
+  num_threads_per_step: 4
+  # Show per-step progress bars (requires tqdm)
+  show_progress: true
 
 # Performance Configuration
 performance:

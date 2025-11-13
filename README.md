@@ -1,89 +1,62 @@
 # Caption Extractor
 
-OCR text extraction from images using PaddleOCR PP-OCRv5 with multi-threaded batch processing.
+Advanced image processing pipeline with OCR text extraction, AI-powered image analysis, and intelligent text refinement using PaddleOCR PP-OCRv5 and Ollama agents.
 
-## Features
+## 🎯 Key Features
 
-- **High-accuracy OCR**: Uses PaddleOCR PP-OCRv5 for text detection and recognition
-- **Multi-threaded processing**: Configurable concurrent processing for improved performance
-- **Batch processing**: Process entire folders of images automatically
-- **Progress tracking**: Real-time progress display with timing information
-- **Flexible configuration**: YAML-based configuration for all settings
-- **Comprehensive logging**: Detailed logging with configurable levels
-- **Performance reporting**: Detailed statistics after processing completion
-- **Multiple image formats**: Support for JPG, JPEG, PNG, BMP, TIFF, WEBP
-- **YAML output**: Extracted text saved as structured YAML files
+- **Pipeline-Based Processing**: Step-by-step processing with YAML state management
+- **No Context Switching**: Each image processes through all steps sequentially
+- **Resume Capability**: Automatically resume incomplete processing from the failing step
+- **State Persistence**: Complete YAML audit trail of all processing steps
+- **Multi-Step Intelligence**:
+  - **OCR Extraction**: High-accuracy text detection with PaddleOCR PP-OCRv5
+  - **Vision Analysis**: AI-powered image understanding via Image Agent
+  - **Text Refinement**: Intelligent text correction via Text Agent
+  - **Optional Translation**: Translate extracted content to other languages
+  - **Metadata Combination**: Unified output combining all sources
+- **Multi-threaded Processing**: Configurable concurrent processing for batch jobs
+- **Error Resilience**: Per-step error handling with automatic retry capability
+- **Comprehensive Logging**: Detailed logging at each pipeline step
+- **Multiple Image Formats**: Support for JPG, JPEG, PNG, BMP, TIFF, WEBP
+- **Performance Metrics**: Detailed timing and success statistics per image and step
 
-## Installation
+## 🚀 Getting Started
 
-### Prerequisites
-
-- Python 3.8 or higher
-- UV package manager ([Installation guide](https://docs.astral.sh/uv/getting-started/installation/))
-
-### Quick Setup
-
-1. Clone or download the project
-2. Run the setup script:
+### Quick Start
 
 ```bash
-./start.sh --setup
+# Run pipeline processing
+python -m caption_extractor.main --config config.yml --input-folder ./images
+
+# Resume incomplete processing (automatic)
+python -m caption_extractor.main --config config.yml --input-folder ./images
 ```
 
-This will:
-- Create a virtual environment
-- Install all required dependencies
-- Create necessary directories
-
-## Usage
-
-### Basic Usage
+### With Setup Script
 
 ```bash
-# Process all images in the data folder
+# Setup environment
+./start.sh --setup
+
+# Run processing
 ./start.sh
-
-# Process with verbose logging
-./start.sh --verbose
-
-# Use custom number of threads
-./start.sh --threads 8
-
-# Use custom configuration file
-./start.sh --config my_config.yml
-
-# Use custom input folder
-./start.sh --input-folder /path/to/images
-```
-
-### Setup and Check Commands
-
-```bash
-# Setup environment only
-./start.sh --setup
-
-# Check environment and data without processing
-./start.sh --check
-
-# Show help
-./start.sh --help
-```
-
-### Direct Python Usage
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run the application
-python -m caption_extractor.main --help
 ```
 
 ## Configuration
 
 Edit `config.yml` to customize processing settings:
 
-### Key Configuration Options
+### Pipeline Configuration
+
+```yaml
+pipeline:
+  enable_ocr: true              # Enable/disable OCR step
+  enable_image_agent: true      # Enable/disable vision analysis
+  enable_text_agent: true       # Enable/disable text refinement
+  enable_translation: false     # Enable/disable translation (optional)
+```
+
+### Key Processing Options
 
 ```yaml
 # Processing Configuration
@@ -132,22 +105,63 @@ caption-extractor/
 └── README.md               # This file
 ```
 
+## 📖 Documentation
+
+### Complete Guides
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
+- **[docs/PIPELINE_ARCHITECTURE.md](docs/PIPELINE_ARCHITECTURE.md)** - Detailed pipeline architecture and state management
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Complete implementation details
+- **[BEFORE_AFTER_COMPARISON.md](BEFORE_AFTER_COMPARISON.md)** - Architecture evolution and improvements
+- **[docs/API.md](docs/API.md)** - Python API reference
+- **[docs/USAGE.md](docs/USAGE.md)** - Detailed usage guide
+- **[docs/AI_AGENTS.md](docs/AI_AGENTS.md)** - AI agent configuration and usage
+
 ## Output Format
 
-For each processed image, a YAML file is created in the same directory with extracted text:
+For each processed image, a YAML file is created in the same directory with complete pipeline state:
 
 ```yaml
-image_file: "example.jpg"
-image_path: "/path/to/example.jpg"
-processed_at: "2024-01-15 14:30:22"
-processing_time: 0.845
-text_lines:
-  - text: "Sample extracted text"
-    confidence: 0.987
-    bbox: [[10, 20], [100, 20], [100, 40], [10, 40]]
-full_text: "Sample extracted text"
-total_elements: 1
-avg_confidence: 0.987
+image_path: "example.jpg"
+image_name: "example.jpg"
+created_at: "2025-11-12T10:30:45.123456"
+updated_at: "2025-11-12T10:35:12.987654"
+
+pipeline_status:
+  overall_status: completed      # pending/running/completed/failed
+  current_step: null
+  steps:
+    ocr_processing:
+      status: completed
+      duration: 17.3
+      data: {ocr extraction results}
+    image_agent_analysis:
+      status: completed
+      duration: 73.3
+      data: {vision analysis results}
+    text_agent_processing:
+      status: completed
+      duration: 89.2
+      data: {text refinement results}
+    translation:
+      status: skipped
+      error: "Translation not needed"
+    metadata_combination:
+      status: completed
+      duration: 3.3
+      data: {combined results}
+
+results:
+  ocr_data: {ocr results}
+  image_analysis: {vision analysis}
+  text_processing: {text refinement}
+  translation_result: null
+  combined_metadata: {final metadata}
+
+metadata:
+  total_processing_time: 183.2
+  failed_steps: []
+  retries: 0
 ```
 
 ## Processing Report

@@ -40,8 +40,8 @@ class OCRProcessor:
             ocr_params = {
                 'use_angle_cls': ocr_config.get('use_angle_cls', True),
                 'lang': ocr_config.get('lang', 'en'),
-                'use_gpu': ocr_config.get('use_gpu', False),
-                'show_log': ocr_config.get('show_log', False),
+                # 'use_gpu': ocr_config.get('use_gpu', False),
+                # 'show_log': ocr_config.get('show_log', False),
             }
             
             # Add detection parameters for better accuracy
@@ -81,7 +81,14 @@ class OCRProcessor:
             # Initialize with error handling
             try:
                 self.logger.info("Creating PaddleOCR instance...")
-                self.ocr_engine = PaddleOCR(**ocr_params)
+                # Ensure a conservative default for GPU usage to avoid unexpected device-related issues
+                # if 'use_gpu' not in ocr_params:
+                #     ocr_params['use_gpu'] = ocr_config.get('use_gpu', False)
+
+                # Remove any keys with value None to avoid unexpected constructor errors
+                safe_params = {k: v for k, v in ocr_params.items() if v is not None}
+
+                self.ocr_engine = PaddleOCR(**safe_params)
                 self.logger.info("PaddleOCR engine initialized successfully")
                 
                 # Test initialization
@@ -98,6 +105,8 @@ class OCRProcessor:
                     'use_angle_cls': False,
                 }
                 self.logger.info("Attempting fallback initialization...")
+                # Force conservative fallback parameters
+                fallback_params['use_gpu'] = False
                 self.ocr_engine = PaddleOCR(**fallback_params)
                 self.logger.info("PaddleOCR initialized with fallback parameters")
             
@@ -132,10 +141,23 @@ class OCRProcessor:
                 raise Exception(f"Cannot load image: {image_path}")
             
             original_shape = image.shape
-            
+
             # Apply preprocessing steps based on config
             image = self._apply_preprocessing_steps(image, preproc_config)
-            
+
+            # Ensure image is a contiguous uint8 numpy array suitable for Paddle
+            try:
+                if image is None or getattr(image, 'size', 0) == 0:
+                    raise ValueError(f"Preprocessed image is empty: {image_path}")
+
+                # Force uint8 and contiguous layout
+                if image.dtype != np.uint8:
+                    image = image.astype(np.uint8)
+                image = np.ascontiguousarray(image)
+            except Exception as conv_err:
+                self.logger.error(f"Invalid image after preprocessing for {image_path}: {conv_err}")
+                raise
+
             self.logger.debug(f"Preprocessed image {image_path}: {original_shape} -> {image.shape}")
             return image
             
@@ -182,12 +204,17 @@ class OCRProcessor:
         # 6. Apply adaptive thresholding for better text detection
         if config.get('adaptive_threshold', False):
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # Ensure block size is an odd integer >=3
+            block_size = int(config.get('threshold_block_size', 11) or 11)
+            if block_size % 2 == 0:
+                block_size = block_size - 1 if block_size > 3 else 3
+            block_size = max(3, block_size)
             thresh = cv2.adaptiveThreshold(
-                gray, 255, 
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                gray, 255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                 cv2.THRESH_BINARY,
-                config.get('threshold_block_size', 11),
-                config.get('threshold_c', 2)
+                block_size,
+                int(config.get('threshold_c', 2))
             )
             image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
         
@@ -273,7 +300,26 @@ class OCRProcessor:
     def _remove_borders(self, image: np.ndarray, border_size: int) -> np.ndarray:
         """Remove borders from image."""
         h, w = image.shape[:2]
-        return image[border_size:h-border_size, border_size:w-border_size]
+        if h <= 0 or w <= 0:
+            self.logger.debug("Image has non-positive dimensions, skipping border removal")
+            return image
+
+        # Clamp border_size so we don't create an empty image
+        border = int(max(0, border_size))
+        max_border_h = max(0, (h // 2) - 1)
+        max_border_w = max(0, (w // 2) - 1)
+        border = min(border, max_border_h, max_border_w)
+
+        if border <= 0:
+            return image
+
+        new_h = h - 2 * border
+        new_w = w - 2 * border
+        if new_h <= 0 or new_w <= 0:
+            self.logger.warning("Requested border removal would result in empty image; skipping")
+            return image
+
+        return image[border:h-border, border:w-border]
     
     def extract_text(self, image_path: str, performance_config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Extract text from image using OCR.
@@ -294,7 +340,28 @@ class OCRProcessor:
             
             # Perform OCR
             self.logger.debug(f"Processing image: {image_path}")
-            results = self.ocr_engine.ocr(image)
+
+            # Validate image before passing to PaddleOCR to avoid empty-tensor errors
+            if image is None or getattr(image, 'size', 0) == 0:
+                raise ValueError(f"Preprocessed image is empty for {image_path}")
+
+            # Ensure proper dtype and memory layout
+            if image.dtype != np.uint8:
+                self.logger.debug("Converting image dtype to uint8 for OCR")
+                image = image.astype(np.uint8)
+            image = np.ascontiguousarray(image)
+
+            try:
+                results = self.ocr_engine.ocr(image)
+            except Exception as ocr_err:
+                # Provide an enriched error message with common troubleshooting hints
+                hint = (
+                    "PaddleOCR raised an error while processing the image. "
+                    "Common causes: empty/zero-sized image, wrong dtype, or device/config mismatch. "
+                    "Ensure the image is a non-empty uint8 numpy array (H,W,3) and that Paddle is installed correctly."
+                )
+                self.logger.error(f"OCR engine error for {image_path}: {ocr_err} -- {hint}")
+                raise
             
             # Process results
             extracted_data = []
@@ -440,7 +507,7 @@ class OCRProcessor:
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
         
         return {
-            'text_lines': text_lines,
+            # 'text_lines': text_lines,
             'full_text': full_text,
             'total_elements': len(extracted_data),
             'avg_confidence': round(avg_confidence, 3),
