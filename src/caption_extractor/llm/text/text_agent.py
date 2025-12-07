@@ -120,7 +120,7 @@ CONFIDENCE:
             # Detect language of the primary text and mark if translation is needed
             try:
                 lang_info = self.detect_language(primary_text)
-                print(f"Detected language info: {lang_info}")
+                self.logger.debug(f"Detected language info: {lang_info}")
                 result['language'] = lang_info.get('language', 'unknown')
                 result['language_code'] = lang_info.get('code', '')
                 # Mark needTranslation = True when detected language is not English

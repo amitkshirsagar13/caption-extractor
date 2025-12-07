@@ -82,15 +82,17 @@ def main() -> int:
         parser = setup_argument_parser()
         args = parser.parse_args()
         
-        # Load configuration
-        print(f"Loading configuration from: {args.config}")
+        # Load configuration (this will setup logging via ConfigManager)
         config_manager = ConfigManager(args.config)
+        
+        # Get logger after config is loaded
+        logger = logging.getLogger(__name__)
         
         # Setup logging level if verbose
         if args.verbose:
-            logging.getLogger().setLevel(logging.DEBUG)
+            from .logging_config import reconfigure_logging
+            reconfigure_logging('DEBUG')
         
-        logger = logging.getLogger(__name__)
         logger.info("Starting Caption Extractor")
         logger.info(f"Configuration loaded from: {args.config}")
         
@@ -199,79 +201,73 @@ def main() -> int:
         
         if not image_files:
             logger.warning("No image files found to process")
-            print(f"No image files found in: {input_folder}")
-            print(
-                "Supported formats: ",
-                ", ".join(config_manager.get_supported_formats()),
+            logger.info(f"No image files found in: {input_folder}")
+            logger.info(
+                f"Supported formats: {', '.join(config_manager.get_supported_formats())}"
             )
             return 1
         
         # Process images
-        logger.info("Found %s image files to process", len(image_files))
-        print("\nProcessing", len(image_files), "images from:", input_folder)
-        print("Using", config_manager.get_num_threads(), "threads")
+        logger.info(f"Found {len(image_files)} image files to process")
+        logger.info(f"Processing {len(image_files)} images from: {input_folder}")
+        logger.info(f"Using {config_manager.get_num_threads()} threads")
 
         if args.batch_mode == 'step':
-            print("Batch processing mode: STEP")
+        if args.batch_mode == 'step':
+            logger.info("Batch processing mode: STEP")
             report = batch_processor.process_images_batch_by_steps(image_files)
 
             # Step-mode report (summary of steps)
-            print("\n" + "=" * 60)
-            print("PROCESSING COMPLETED (STEP MODE)")
-            print("=" * 60)
-            print("Total images:", report['summary']['total_images'])
-            print("Steps completed:", ", ".join(report['summary']['steps']))
+            logger.info("=" * 60)
+            logger.info("PROCESSING COMPLETED (STEP MODE)")
+            logger.info("=" * 60)
+            logger.info(f"Total images: {report['summary']['total_images']}")
+            logger.info(f"Steps completed: {', '.join(report['summary']['steps'])}")
             total_time_val = report['timing']['total_processing_time']
-            print("Total processing time:", total_time_val, "s")
+            logger.info(f"Total processing time: {total_time_val}s")
 
             if report.get('errors'):
-                print("\nErrors occurred during processing:")
+                logger.warning("Errors occurred during processing:")
                 for error in report['errors']:
                     name = Path(error['image']).name
-                    print("  -", name + ":", error['error'])
+                    logger.error(f"  - {name}: {error['error']}")
 
         else:
-            print("Batch processing mode: IMAGE")
+            logger.info("Batch processing mode: IMAGE")
             report = image_processor.process_images_batch(image_files)
 
             # Image-mode (original) report
-            print("\n" + "=" * 60)
-            print("PROCESSING COMPLETED")
-            print("=" * 60)
-            print("Total images:", report['summary']['total_images'])
-            print("Successfully processed:",
-                  report['summary']['successful_images'])
-            print("Failed:", report['summary']['failed_images'])
-            success_rate_str = str(report['summary']['success_rate']) + "%"
-            print("Success rate:", success_rate_str)
-            print("Average time per image:",
-                  str(report['timing']['average_time_per_image']) + "s")
-            print("Total time:", str(report['timing']['batch_time']) + "s")
+            logger.info("=" * 60)
+            logger.info("PROCESSING COMPLETED")
+            logger.info("=" * 60)
+            logger.info(f"Total images: {report['summary']['total_images']}")
+            logger.info(f"Successfully processed: {report['summary']['successful_images']}")
+            logger.info(f"Failed: {report['summary']['failed_images']}")
+            success_rate_str = f"{report['summary']['success_rate']}%"
+            logger.info(f"Success rate: {success_rate_str}")
+            logger.info(f"Average time per image: {report['timing']['average_time_per_image']}s")
+            logger.info(f"Total time: {report['timing']['batch_time']}s")
 
             if report['errors']:
-                print("\nErrors occurred during processing:")
+                logger.warning("Errors occurred during processing:")
                 for error in report['errors']:
                     name = Path(error['image']).name
-                    print("  -", name + ":", error['error'])
+                    logger.error(f"  - {name}: {error['error']}")
 
-            print("\nResults saved as .yml files")
-            print("in the same folders as the images.")
-
+            logger.info("Results saved as .yml files in the same folders as the images.")
+        logger.info("Caption Extractor completed successfully")
+        return 0
+        
         logger.info("Caption Extractor completed successfully")
         return 0
         
     except KeyboardInterrupt:
-        print("\nProcessing interrupted by user")
         logger = logging.getLogger(__name__)
         logger.info("Processing interrupted by user")
         return 1
         
     except Exception as e:
-        print(f"Error: {e}")
         logger = logging.getLogger(__name__)
         logger.error(f"Fatal error: {e}", exc_info=True)
-        return 1
-
-
-if __name__ == "__main__":
+        return 1__main__":
     sys.exit(main())

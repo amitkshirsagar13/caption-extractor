@@ -15,11 +15,7 @@ from .config_manager import ConfigManager
 from .pipeline.step_processor.single_image_processor import SingleImageProcessor
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Get logger - logging will be configured by ConfigManager
 logger = logging.getLogger(__name__)
 
 
@@ -366,18 +362,34 @@ def run_server(config_path: str = "config.yml"):
         workers = api_config.get('workers', 1)
         log_level = api_config.get('log_level', 'info')
         
+        # Reload monitoring configuration
+        reload_dirs = api_config.get('reload_dirs', None)
+        reload_excludes = api_config.get('reload_excludes', None)
+        
         logger.info(f"Starting Caption Extractor API server on {host}:{port}")
         logger.info(f"Swagger UI: http://{host}:{port}/docs")
         logger.info(f"ReDoc: http://{host}:{port}/redoc")
         
-        uvicorn.run(
-            "caption_extractor.api_service:app",
-            host=host,
-            port=port,
-            reload=reload,
-            workers=workers,
-            log_level=log_level
-        )
+        # Build uvicorn.run arguments
+        run_args = {
+            "app": "caption_extractor.api_service:app",
+            "host": host,
+            "port": port,
+            "reload": reload,
+            "workers": workers,
+            "log_level": log_level
+        }
+        
+        # Add reload configuration if reload is enabled
+        if reload:
+            if reload_dirs:
+                run_args["reload_dirs"] = reload_dirs
+                logger.info(f"Monitoring directories for changes: {reload_dirs}")
+            if reload_excludes:
+                run_args["reload_excludes"] = reload_excludes
+                logger.info(f"Excluding from reload monitoring: {reload_excludes}")
+        
+        uvicorn.run(**run_args)
         
     except Exception as e:
         logger.error(f"Failed to start server: {e}", exc_info=True)

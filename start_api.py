@@ -6,6 +6,7 @@ Usage: python start_api.py [--config config.yml]
 
 import sys
 import os
+import logging
 from pathlib import Path
 
 # Add src directory to Python path
@@ -30,6 +31,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Note: logging will be configured by run_server -> ConfigManager
+    # These initial messages use print for startup visibility
     print("=" * 60)
     print("Caption Extractor API Server")
     print("=" * 60)

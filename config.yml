@@ -15,6 +15,17 @@ api:
   reload: true  # Auto-reload on code changes (dev mode)
   workers: 1  # Number of worker processes
   log_level: "info"  # API log level: debug, info, warning, error, critical
+  
+  # Reload monitoring configuration (only applies when reload: true)
+  # Option 1: Specify directories to monitor (include only these)
+  reload_dirs: ["src/caption_extractor"]
+  
+  # Option 2: Exclude specific directories/patterns from monitoring
+  reload_excludes: ["*.log", "logs/*", "models/*", "data/*", "__pycache__/*", "*.pyc"]
+  
+  # Examples:
+  # - Monitor only source code: reload_dirs: ["src"]
+  # - Exclude large folders: reload_excludes: ["models/*", "logs/*", "data/*", "images/*"]
 
 # ========================================
 # AI Agent Configuration

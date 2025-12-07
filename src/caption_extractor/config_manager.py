@@ -4,7 +4,9 @@ import os
 import yaml
 import logging
 from typing import Dict, Any, List
- 
+
+from .logging_config import setup_logging
+
 
 class ConfigManager:
     """Manages configuration loading and validation."""
@@ -19,6 +21,7 @@ class ConfigManager:
         self.config = self._load_config()
         self._setup_logging()
         self._create_directories()
+        self.logger = logging.getLogger(__name__)
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from YAML file.
@@ -41,41 +44,29 @@ class ConfigManager:
     
     def _setup_logging(self) -> None:
         """Setup logging based on configuration."""
-        log_config = self.config.get('logging', {})
-        log_level = getattr(logging, log_config.get('level', 'INFO').upper())
-        log_format = log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        log_file = log_config.get('file', 'logs/caption_extractor.log')
-        
-        # Create logs directory if it doesn't exist (guard empty paths)
-        log_dir = os.path.dirname(log_file)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
-        
-        # Setup logging
-        logging.basicConfig(
-            level=log_level,
-            format=log_format,
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler()
-            ]
-        )
+        # Use centralized logging configuration
+        setup_logging(self.config)
     
     def _create_directories(self) -> None:
         """Create necessary directories based on configuration."""
+        logger = logging.getLogger(__name__)
+        
         # Create model directory
         model_dir = self.get_model_dir()
         os.makedirs(model_dir, exist_ok=True)
+        logger.debug(f"Model directory created/verified: {model_dir}")
         
         # Create data directory if it doesn't exist
         data_dir = self.get_input_folder()
         os.makedirs(data_dir, exist_ok=True)
+        logger.debug(f"Data directory created/verified: {data_dir}")
         
         # Create logs directory (guard empty paths)
         log_file = self.config.get('logging', {}).get('file', 'logs/caption_extractor.log')
         log_dir = os.path.dirname(log_file)
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
+            logger.debug(f"Logs directory created/verified: {log_dir}")
     
     def get_model_dir(self) -> str:
         """Get model storage directory."""
@@ -92,7 +83,6 @@ class ConfigManager:
     def get_num_threads(self) -> int:
         """Get number of processing threads."""
         return self.config.get('processing', {}).get('num_threads', 4)
-    
     def get_batch_size(self) -> int:
         """Get batch size for processing."""
         return self.config.get('processing', {}).get('batch_size', 10)
