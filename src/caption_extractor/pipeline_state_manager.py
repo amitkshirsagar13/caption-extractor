@@ -70,7 +70,7 @@ class PipelineStateManager:
             },
             'results': {
                 'ocr_data': None,
-                'image_analysis': None,
+                'vl_model_data': None,
                 'text_processing': None,
                 'translation_result': None,
                 'combined_metadata': None,
@@ -241,9 +241,11 @@ class PipelineStateManager:
         if duration is not None:
             state['pipeline_status']['steps'][step]['duration'] = round(duration, 3)
         
-        # Store step result
+        # Store step result in both locations
         if data is not None:
             state['results'][self._get_result_key(step)] = data
+            # Also store in steps.data for direct access
+            state['pipeline_status']['steps'][step]['data'] = data
         
         return state
     
@@ -364,7 +366,7 @@ class PipelineStateManager:
         """
         key_map = {
             'ocr_processing': 'ocr_data',
-            'image_agent_analysis': 'image_analysis',
+            'image_agent_analysis': 'vl_model_data',
             'text_agent_processing': 'text_processing',
             'translation': 'translation_result',
             'metadata_combination': 'combined_metadata'

@@ -485,6 +485,9 @@ class OCRProcessor:
         Returns:
             List of extracted text with bounding boxes and confidence scores
         """
+        import time
+        self._ocr_start_time = time.perf_counter()
+        
         try:
             if self.ocr_engine is None:
                 raise Exception("OCR engine not initialized")
@@ -694,14 +697,23 @@ class OCRProcessor:
             extracted_data: List of extracted text elements
             
         Returns:
-            Formatted text data
+            Formatted text data with model info and processing time
         """
+        import time
+        
+        # Calculate OCR processing time
+        processing_time = 0.0
+        if hasattr(self, '_ocr_start_time'):
+            processing_time = round(time.perf_counter() - self._ocr_start_time, 3)
+        
         if not extracted_data:
             return {
                 'text_lines': [],
                 'full_text': '',
                 'total_elements': 0,
-                'avg_confidence': 0.0
+                'avg_confidence': 0.0,
+                'model': 'PaddleOCR',
+                'processing_time': processing_time
             }
         
         # Sort by y-coordinate for proper reading order
@@ -734,5 +746,7 @@ class OCRProcessor:
             'total_elements': len(extracted_data),
             'avg_confidence': round(avg_confidence, 3),
             'min_confidence': round(min(confidences), 3) if confidences else 0.0,
-            'max_confidence': round(max(confidences), 3) if confidences else 0.0
+            'max_confidence': round(max(confidences), 3) if confidences else 0.0,
+            'model': 'PaddleOCR',
+            'processing_time': processing_time
         }

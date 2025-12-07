@@ -17,7 +17,7 @@ class MetadataCombiner:
         self,
         image_path: str,
         ocr_data: Optional[Dict[str, Any]] = None,
-        image_analysis: Optional[Dict[str, Any]] = None,
+        vl_model_data: Optional[Dict[str, Any]] = None,
         text_processing: Optional[Dict[str, Any]] = None,
         translation_result: Optional[Dict[str, Any]] = None,
         processing_time: float = 0.0
@@ -27,7 +27,7 @@ class MetadataCombiner:
         Args:
             image_path: Path to the image file
             ocr_data: OCR extraction results
-            image_analysis: Image agent analysis results
+            vl_model_data: Image agent analysis results
             text_processing: Text agent processing results
             translation_result: Translation results (optional)
             processing_time: Total processing time
@@ -55,7 +55,9 @@ class MetadataCombiner:
                     'total_elements': ocr_data.get('total_elements', 0),
                     'avg_confidence': ocr_data.get('avg_confidence', 0.0),
                     'min_confidence': ocr_data.get('min_confidence', 0.0),
-                    'max_confidence': ocr_data.get('max_confidence', 0.0)
+                    'max_confidence': ocr_data.get('max_confidence', 0.0),
+                    'model': ocr_data.get('model', 'PaddleOCR'),
+                    'processing_time': ocr_data.get('processing_time', 0.0)
                 }
             else:
                 metadata['ocr'] = {
@@ -66,15 +68,17 @@ class MetadataCombiner:
                 }
             
             # Add image analysis
-            if image_analysis:
-                metadata['image_analysis'] = {
-                    'description': image_analysis.get('description', ''),
-                    'scene': image_analysis.get('scene', ''),
-                    'text': image_analysis.get('text', ''),
-                    'story': image_analysis.get('story', '')
+            if vl_model_data:
+                metadata['vl_model_data'] = {
+                    'description': vl_model_data.get('description', ''),
+                    'scene': vl_model_data.get('scene', ''),
+                    'text': vl_model_data.get('text', ''),
+                    'story': vl_model_data.get('story', ''),
+                    'model': vl_model_data.get('model', ''),
+                    'processing_time': vl_model_data.get('processing_time', 0.0)
                 }
             else:
-                metadata['image_analysis'] = {
+                metadata['vl_model_data'] = {
                     'description': '',
                     'scene': '',
                     'text': '',
@@ -102,7 +106,9 @@ class MetadataCombiner:
                     ),
                     'needTranslation': text_processing.get(
                         'needTranslation', False
-                    )
+                    ),
+                    'model': text_processing.get('model', ''),
+                    'processing_time': text_processing.get('processing_time', 0.0)
                 }
             else:
                 metadata['text_processing'] = {
@@ -126,7 +132,9 @@ class MetadataCombiner:
                     ),
                     'translation_model': translation_result.get(
                         'translation_model', ''
-                    )
+                    ),
+                    'model': translation_result.get('model', ''),
+                    'processing_time': translation_result.get('processing_time', 0.0)
                 }
             else:
                 metadata['translation'] = {
@@ -136,7 +144,7 @@ class MetadataCombiner:
             
             # Create a unified text section combining all sources
             metadata['unified_text'] = self._create_unified_text(
-                ocr_data, image_analysis, text_processing
+                ocr_data, vl_model_data, text_processing
             )
             
             # Add summary statistics
@@ -159,14 +167,14 @@ class MetadataCombiner:
     def _create_unified_text(
         self,
         ocr_data: Optional[Dict[str, Any]],
-        image_analysis: Optional[Dict[str, Any]],
+        vl_model_data: Optional[Dict[str, Any]],
         text_processing: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Create unified text section from all sources.
         
         Args:
             ocr_data: OCR results
-            image_analysis: Image analysis results
+            vl_model_data: Image analysis results
             text_processing: Text processing results
             
         Returns:
@@ -185,9 +193,9 @@ class MetadataCombiner:
         elif ocr_data and ocr_data.get('full_text'):
             unified['primary_text'] = ocr_data['full_text']
             unified['recommended_source'] = 'ocr'
-        elif image_analysis and image_analysis.get('text'):
-            unified['primary_text'] = image_analysis['text']
-            unified['recommended_source'] = 'image_analysis'
+        elif vl_model_data and vl_model_data.get('text'):
+            unified['primary_text'] = vl_model_data['text']
+            unified['recommended_source'] = 'vl_model_data'
         
         # Add alternative text sources
         if (ocr_data and ocr_data.get('full_text') and
@@ -197,11 +205,11 @@ class MetadataCombiner:
                 'text': ocr_data['full_text']
             })
         
-        if (image_analysis and image_analysis.get('text') and
-                unified['recommended_source'] != 'image_analysis'):
+        if (vl_model_data and vl_model_data.get('text') and
+                unified['recommended_source'] != 'vl_model_data'):
             unified['alternative_texts'].append({
-                'source': 'image_analysis',
-                'text': image_analysis['text']
+                'source': 'vl_model_data',
+                'text': vl_model_data['text']
             })
         
         return unified
@@ -217,10 +225,14 @@ class MetadataCombiner:
         """
         summary = {
             'has_ocr_data': False,
-            'has_image_analysis': False,
+            'has_vl_model_data': False,
             'has_text_processing': False,
             'text_sources_count': 0,
-            'processing_stages': []
+            'processing_stages': [],
+            'performance': {
+                'total_time': metadata.get('processing_time', 0.0),
+                'breakdown': {}
+            }
         }
         
         # Check what data we have
@@ -229,18 +241,45 @@ class MetadataCombiner:
             summary['has_ocr_data'] = True
             summary['text_sources_count'] += 1
             summary['processing_stages'].append('ocr')
+            # Add OCR performance
+            if ocr_data.get('processing_time'):
+                summary['performance']['breakdown']['ocr'] = {
+                    'time': ocr_data['processing_time'],
+                    'model': ocr_data.get('model', 'PaddleOCR')
+                }
         
-        image_analysis = metadata.get('image_analysis', {})
-        if image_analysis.get('description') or image_analysis.get('text'):
-            summary['has_image_analysis'] = True
-            if image_analysis.get('text'):
+        vl_model_data = metadata.get('vl_model_data', {})
+        if vl_model_data.get('description') or vl_model_data.get('text'):
+            summary['has_vl_model_data'] = True
+            if vl_model_data.get('text'):
                 summary['text_sources_count'] += 1
-            summary['processing_stages'].append('image_analysis')
+            summary['processing_stages'].append('vl_model_data')
+            # Add VL model performance
+            if vl_model_data.get('processing_time'):
+                summary['performance']['breakdown']['vl_model'] = {
+                    'time': vl_model_data['processing_time'],
+                    'model': vl_model_data.get('model', '')
+                }
         
         text_processing = metadata.get('text_processing', {})
         if text_processing.get('corrected_text'):
             summary['has_text_processing'] = True
             summary['processing_stages'].append('text_processing')
+            # Add text processing performance
+            if text_processing.get('processing_time'):
+                summary['performance']['breakdown']['text_processing'] = {
+                    'time': text_processing['processing_time'],
+                    'model': text_processing.get('model', '')
+                }
+        
+        # Add translation performance if available
+        translation = metadata.get('translation', {})
+        if translation.get('translated_text'):
+            if translation.get('processing_time'):
+                summary['performance']['breakdown']['translation'] = {
+                    'time': translation['processing_time'],
+                    'model': translation.get('model', '')
+                }
         
         # Add quality indicators
         if ocr_data.get('avg_confidence'):

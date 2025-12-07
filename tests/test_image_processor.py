@@ -12,8 +12,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from caption_extractor.config_manager import ConfigManager
-from caption_extractor.image_processor import ImageProcessor
-from caption_extractor.ocr_processor import OCRProcessor
+from caption_extractor.pipeline.image_processor import ImageProcessor
+from caption_extractor.ocr.ocr_processor import OCRProcessor
 
 
 class TestImageProcessor(unittest.TestCase):

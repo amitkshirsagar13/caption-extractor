@@ -8,6 +8,14 @@ logging:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/caption_extractor.log"
 
+# API Configuration
+api:
+  port: 8000  # Port for FastAPI server
+  host: "0.0.0.0"  # Host address (0.0.0.0 = accessible from network)
+  reload: true  # Auto-reload on code changes (dev mode)
+  workers: 1  # Number of worker processes
+  log_level: "info"  # API log level: debug, info, warning, error, critical
+
 # ========================================
 # AI Agent Configuration
 # ========================================
@@ -15,10 +23,10 @@ logging:
 # Processing Pipeline Control
 pipeline:
   # Enable/disable individual processing components
-  enable_ocr: false          # OCR text extraction using PaddleOCR
+  enable_ocr: true          # OCR text extraction using PaddleOCR
   enable_image_agent: true  # Image analysis using visual LLM
-  enable_text_agent: false   # Text correction/completion using LLM
-  enable_translation: false # Run translator agent to translate primary_text to English when needed
+  enable_text_agent: true   # Text correction/completion using LLM
+  enable_translation: true # Run translator agent to translate primary_text to English when needed
   # Image resize specification applied before sending images to image agent.
   # Default keeps aspect ratio and scales images to fit within 1024x1024.
   image_resize:
@@ -37,7 +45,7 @@ ollama:
   # Model configuration
   models:
     # Visual model for image analysis (image agent)
-    vision_model: "ministral-3:latest"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud, ministral-3:latest
+    vision_model: "qwen3-vl:4b"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud, ministral-3:latest
     
     # Text model for text processing (text agent)
     text_model: "mistral:latest"  # Suggested: llama3.2:latest, mistral:latest, gemma2:latest

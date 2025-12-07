@@ -10,12 +10,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from tqdm import tqdm
 
-from .ocr_processor import OCRProcessor
-from .image_agent import ImageAgent
-from .text_agent import TextAgent
-from .metadata_combiner import MetadataCombiner
-from .pipeline_state_manager import PipelineStateManager
-from .step_processor import StepProcessor
+from ..ocr.ocr_processor import OCRProcessor
+from ..llm.vl.image_agent import ImageAgent
+from ..llm.text.text_agent import TextAgent
+from .metadata_combiner.metadata_combiner import MetadataCombiner
+from ..pipeline_state_manager import PipelineStateManager
+from .step_processor.step_processor import StepProcessor
 
 
 class ImageProcessor:

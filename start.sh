@@ -104,19 +104,26 @@ Usage: $0 [options]
 
 Options:
     --help, -h          Show this help message
+    --mode MODE         Mode to run: 'api' or 'batch' (default: api)
     --setup             Setup environment only (don't run processing)
     --verbose, -v       Enable verbose logging
     --config FILE       Use custom config file (default: config.yml)
-    --input-folder DIR  Override input folder from config
-    --threads N         Override number of threads from config
+    --input-folder DIR  Override input folder from config (batch mode only)
+    --threads N         Override number of threads from config (batch mode only)
     --check             Check environment and data without processing
     
 Examples:
-    $0                  # Run with default settings
-    $0 --verbose        # Run with verbose logging
-    $0 --threads 8      # Run with 8 threads
-    $0 --setup          # Setup environment only
-    $0 --check          # Check environment and data
+    $0                      # Run in web API mode (default)
+    $0 --mode api           # Run in web API mode
+    $0 --mode batch         # Run in batch processing mode
+    $0 --mode batch --verbose  # Run batch mode with verbose logging
+    $0 --mode batch --threads 8  # Run batch mode with 8 threads
+    $0 --setup              # Setup environment only
+    $0 --check              # Check environment and data
+
+Modes:
+    api     - Start FastAPI web server (default)
+    batch   - Process images in batch mode from data folder
 
 Configuration:
     Edit config.yml to customize processing settings, model parameters,
@@ -128,6 +135,7 @@ EOF
 # Parse command line arguments
 SETUP_ONLY=false
 CHECK_ONLY=false
+MODE="api"  # Default mode is web API
 VERBOSE=""
 CONFIG_FILE=""
 INPUT_FOLDER=""
@@ -138,6 +146,14 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             show_help
             exit 0
+            ;;
+        --mode)
+            MODE="$2"
+            if [ "$MODE" != "api" ] && [ "$MODE" != "batch" ]; then
+                print_error "Invalid mode: $MODE. Use 'api' or 'batch'"
+                exit 1
+            fi
+            shift 2
             ;;
         --setup)
             SETUP_ONLY=true
@@ -201,10 +217,12 @@ main() {
     fi
     print_success "Configuration file found: $config_file"
     
-    # Check data
-    if ! check_data && [ "$CHECK_ONLY" != true ]; then
-        print_error "No image files to process. Add images to data folder and try again."
-        exit 1
+    # Check data (only required for batch mode)
+    if [ "$MODE" = "batch" ]; then
+        if ! check_data && [ "$CHECK_ONLY" != true ]; then
+            print_error "No image files to process. Add images to data folder and try again."
+            exit 1
+        fi
     fi
     
     if [ "$CHECK_ONLY" = true ]; then
@@ -212,8 +230,8 @@ main() {
         exit 0
     fi
     
-    # Run the caption extractor
-    print_status "Starting image processing..."
+    # Run in the selected mode
+    print_status "Starting in $MODE mode..."
     echo ""
     
     # Activate virtual environment and run the program
@@ -222,7 +240,16 @@ main() {
     else
         source .venv/bin/activate
     fi
-    python -m caption_extractor.main $CONFIG_FILE $INPUT_FOLDER $THREADS $VERBOSE
+    
+    if [ "$MODE" = "api" ]; then
+        # Run FastAPI server
+        print_status "Starting FastAPI server..."
+        python start_api.py
+    else
+        # Run batch processing
+        print_status "Starting batch image processing..."
+        python -m caption_extractor.main $CONFIG_FILE $INPUT_FOLDER $THREADS $VERBOSE
+    fi
     
     exit_code=$?
     

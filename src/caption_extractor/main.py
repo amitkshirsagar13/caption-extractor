@@ -6,13 +6,13 @@ import argparse
 from pathlib import Path
 
 from .config_manager import ConfigManager
-from .ocr_processor import OCRProcessor
-from .image_processor import ImageProcessor
+from .ocr.ocr_processor import OCRProcessor
+from .pipeline.image_processor import ImageProcessor
 from .ollama_client import OllamaClient
-from .image_agent import ImageAgent
-from .text_agent import TextAgent
-from .translator_agent import TranslatorAgent
-from .batch_processor_by_steps import BatchProcessorBySteps
+from .llm.vl.image_agent import ImageAgent
+from .llm.text.text_agent import TextAgent
+from .llm.translation.translator_agent import TranslatorAgent
+from .pipeline.batch_processor.batch_processor_by_steps import BatchProcessorBySteps
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:

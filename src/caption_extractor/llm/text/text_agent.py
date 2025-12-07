@@ -2,7 +2,7 @@
 
 import logging
 from typing import Dict, Any, Optional, List
-from .ollama_client import OllamaClient
+from ...ollama_client import OllamaClient
 
 
 class TextAgent:
@@ -42,13 +42,13 @@ class TextAgent:
     def process_text(
         self, 
         ocr_text: str, 
-        image_analysis: Optional[Dict[str, Any]] = None
+        vl_model_data: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """Process and correct OCR-extracted text.
         
         Args:
             ocr_text: Raw OCR-extracted text
-            image_analysis: Optional image analysis data for context
+            vl_model_data: Optional image analysis data for context
             
         Returns:
             Dictionary containing corrected text and metadata or None if failed
@@ -58,14 +58,14 @@ class TextAgent:
             
             # Build context from image analysis if available
             context = ""
-            if image_analysis:
+            if vl_model_data:
                 context = f"\n\nImage Context:\n"
-                if image_analysis.get('description'):
-                    context += f"- Description: {image_analysis['description']}\n"
-                if image_analysis.get('scene'):
-                    context += f"- Scene: {image_analysis['scene']}\n"
-                if image_analysis.get('text'):
-                    context += f"- Visible text (from vision model): {image_analysis['text']}\n"
+                if vl_model_data.get('description'):
+                    context += f"- Description: {vl_model_data['description']}\n"
+                if vl_model_data.get('scene'):
+                    context += f"- Scene: {vl_model_data['scene']}\n"
+                if vl_model_data.get('text'):
+                    context += f"- Visible text (from vision model): {vl_model_data['text']}\n"
             
             # Prepare prompt
             prompt = f"""I have extracted text from an image using OCR. Please review and correct any errors, complete incomplete words or sentences, and improve readability while maintaining the original meaning.
@@ -89,7 +89,7 @@ CONFIDENCE:
 [low/medium/high]"""
             
             # Call Ollama for text processing
-            response = self.ollama_client.generate_text(
+            response_data = self.ollama_client.generate_text(
                 model=self.text_model,
                 prompt=prompt,
                 system_prompt=self.system_prompt,
@@ -97,12 +97,21 @@ CONFIDENCE:
                 max_tokens=self.max_tokens
             )
             
-            if not response:
+            if not response_data:
                 self.logger.error("Failed to get response from text model")
                 return None
             
+            # Extract response text and metadata
+            response = response_data.get('response', '')
+            model = response_data.get('model', self.text_model)
+            processing_time = response_data.get('processing_time', 0.0)
+            
             # Parse the response
             result = self._parse_response(response, ocr_text)
+            
+            # Add model and timing info
+            result['model'] = model
+            result['processing_time'] = processing_time
 
             # Set primary_text for downstream use
             primary_text = result.get('corrected_text') or ocr_text or ''
@@ -111,6 +120,7 @@ CONFIDENCE:
             # Detect language of the primary text and mark if translation is needed
             try:
                 lang_info = self.detect_language(primary_text)
+                print(f"Detected language info: {lang_info}")
                 result['language'] = lang_info.get('language', 'unknown')
                 result['language_code'] = lang_info.get('code', '')
                 # Mark needTranslation = True when detected language is not English
@@ -122,12 +132,21 @@ CONFIDENCE:
                 elif name and 'english' not in name and name != 'en':
                     need_translation = True
 
+                needs_translation_str = lang_info.get('needs_translation', 'false')
+                if isinstance(needs_translation_str, bool):
+                    need_translation = needs_translation_str
+                else:
+                    need_translation = needs_translation_str.lower() == 'true'
+                text_to_translate = lang_info.get('text_to_translate', '')
+
                 result['needTranslation'] = need_translation
+                result['textToTranslate'] = text_to_translate
             except Exception:
                 # If detection fails, be conservative and assume no translation
                 result['language'] = 'unknown'
                 result['language_code'] = ''
                 result['needTranslation'] = False
+                result['textToTranslate'] = ''
             
             self.logger.info("Successfully processed text with LLM")
             self.logger.debug(f"Text processing result: {result}")
@@ -205,13 +224,19 @@ CONFIDENCE:
             if not text or not text.strip():
                 return {'language': 'unknown', 'code': ''}
 
-            prompt = f"""Determine the primary language of the following text. Return ONLY the language name and the ISO 639-1 code in the following JSON format:
-{{"language": "<Language Name>", "code": "<iso_code>"}}
-
+            prompt = f"""
+            Analyze the following text and identify if it has any text in different language even though the words/sentences are written in English alphabet.
+            Provide the primary language name and its ISO 639-1 code in JSON format as follows:
+            {{
+                "language": "<Language Name>",
+                "code": "<ISO 639-1 Code>",
+                "needs_translation": "<true/false>",
+                "text_to_translate": "<Extracted text that needs translation or empty>"
+            }}
 Text:
 """ + text
 
-            response = self.ollama_client.generate_text(
+            response_data = self.ollama_client.generate_text(
                 model=self.text_model,
                 prompt=prompt,
                 system_prompt="",
@@ -219,14 +244,18 @@ Text:
                 max_tokens=50
             )
 
-            if not response:
+            if not response_data:
                 return {'language': 'unknown', 'code': ''}
+            
+            response = response_data.get('response', '')
 
             # Try to parse JSON-like output
             resp = response.strip()
             # crude parse: look for code and language
             lang = ''
             code = ''
+            needs_translation = ''
+            text_to_translate = ''
             # attempt to find iso code in response
             low = resp.lower()
             # common tokens
@@ -238,6 +267,8 @@ Text:
                 try:
                     import re
 
+                    needs_translation = re.search(r'"needs_translation"\s*:\s*"([^"]+)"', resp)
+                    text_to_translate = re.search(r'"text_to_translate"\s*:\s*"([^"]+)"', resp)
                     m_lang = re.search(r'"language"\s*:\s*"([^"]+)"', resp)
                     m_code = re.search(r'"code"\s*:\s*"([^"]+)"', resp)
                     if m_lang:
@@ -252,7 +283,7 @@ Text:
                 # take first token
                 lang = resp.split('\n')[0].strip()
 
-            return {'language': lang or 'unknown', 'code': code or ''}
+            return {'language': lang or 'unknown', 'code': code or '', 'needs_translation': needs_translation.group(1) if needs_translation else 'false', 'text_to_translate': text_to_translate.group(1) if text_to_translate else ''}
         except Exception:
             return {'language': 'unknown', 'code': ''}
 
@@ -271,14 +302,16 @@ Text:
 
 {text}"""
             
-            response = self.ollama_client.generate_text(
+            response_data = self.ollama_client.generate_text(
                 model=self.text_model,
                 prompt=prompt,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
             
-            return response.strip() if response else None
+            if response_data:
+                return response_data.get('response', '').strip()
+            return None
             
         except Exception as e:
             self.logger.error(f"Error in simple text correction: {e}")
@@ -306,14 +339,16 @@ Text:
 
 Please {task} for the above text. Return only the enhanced text."""
             
-            response = self.ollama_client.generate_text(
+            response_data = self.ollama_client.generate_text(
                 model=self.text_model,
                 prompt=prompt,
                 temperature=self.temperature + 0.2,  # Slightly higher temperature for creativity
                 max_tokens=self.max_tokens
             )
             
-            return response.strip() if response else None
+            if response_data:
+                return response_data.get('response', '').strip()
+            return None
             
         except Exception as e:
             self.logger.error(f"Error enhancing text: {e}")
@@ -349,14 +384,16 @@ Please combine and reconcile these two sources to produce the most accurate and 
 
 Return only the final combined and corrected text."""
             
-            response = self.ollama_client.generate_text(
+            response_data = self.ollama_client.generate_text(
                 model=self.text_model,
                 prompt=prompt,
                 temperature=0.2,  # Lower temperature for accuracy
                 max_tokens=self.max_tokens
             )
             
-            return response.strip() if response else None
+            if response_data:
+                return response_data.get('response', '').strip()
+            return None
             
         except Exception as e:
             self.logger.error(f"Error combining texts: {e}")

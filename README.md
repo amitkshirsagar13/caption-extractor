@@ -4,6 +4,7 @@ Advanced image processing pipeline with OCR text extraction, AI-powered image an
 
 ## 🎯 Key Features
 
+- **REST API**: FastAPI-based REST API with Swagger UI for easy integration
 - **Pipeline-Based Processing**: Step-by-step processing with YAML state management
 - **No Context Switching**: Each image processes through all steps sequentially
 - **Resume Capability**: Automatically resume incomplete processing from the failing step
@@ -22,7 +23,17 @@ Advanced image processing pipeline with OCR text extraction, AI-powered image an
 
 ## 🚀 Getting Started
 
-### Quick Start
+### Quick Start - API Server
+
+```bash
+# Start the API server
+python start_api.py
+
+# Access Swagger UI
+# Open http://localhost:8000/docs in your browser
+```
+
+### Quick Start - CLI
 
 ```bash
 # Run pipeline processing
@@ -41,6 +52,44 @@ python -m caption_extractor.main --config config.yml --input-folder ./images
 # Run processing
 ./start.sh
 ```
+
+## 📡 API Usage
+
+### Start the Server
+
+```bash
+python start_api.py
+```
+
+Server runs on: **http://localhost:8000**
+
+### Process an Image
+
+```bash
+# Using curl
+curl -X POST "http://localhost:8000/process" \
+  -F "file=@image.jpg" \
+  -F "enable_ocr=true" \
+  -F "enable_image_agent=true"
+
+# Using Python
+import requests
+
+url = "http://localhost:8000/process"
+files = {"file": open("image.jpg", "rb")}
+data = {"enable_image_agent": True}
+
+response = requests.post(url, files=files, data=data)
+print(response.json())
+```
+
+### API Documentation
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **Quick Reference**: [API_QUICK_REFERENCE.md](API_QUICK_REFERENCE.md)
+- **Full Guide**: [docs/API_README.md](docs/API_README.md)
+- **Integration Guide**: [docs/FASTAPI_INTEGRATION.md](docs/FASTAPI_INTEGRATION.md)
 
 ## Configuration
 

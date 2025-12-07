@@ -67,7 +67,7 @@ class OllamaClient:
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
-    ) -> Optional[str]:
+    ) -> Optional[Dict[str, Any]]:
         """Generate text response based on image and prompt.
         
         Args:
@@ -79,7 +79,7 @@ class OllamaClient:
             max_tokens: Maximum tokens to generate
             
         Returns:
-            Generated text response or None if failed
+            Dict with response, model, and processing_time, or None if failed
         """
         try:
             self.logger.debug(f"Generating with image using model: {model}")
@@ -102,18 +102,25 @@ class OllamaClient:
             if system_prompt:
                 payload["system"] = system_prompt
             
-            # Make request
+            # Make request and track time
+            import time
+            start_time = time.perf_counter()
             response = requests.post(
                 f"{self.host}/api/generate",
                 json=payload,
                 timeout=self.timeout
             )
+            processing_time = time.perf_counter() - start_time
             
             if response.status_code == 200:
                 result = response.json()
                 generated_text = result.get('response', '')
-                self.logger.debug(f"Successfully generated response ({len(generated_text)} chars)")
-                return generated_text
+                self.logger.debug(f"Successfully generated response ({len(generated_text)} chars) in {processing_time:.2f}s")
+                return {
+                    'response': generated_text,
+                    'model': model,
+                    'processing_time': round(processing_time, 3)
+                }
             else:
                 self.logger.error(f"Ollama API returned status {response.status_code}: {response.text}")
                 return None
@@ -132,7 +139,7 @@ class OllamaClient:
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: int = 2000
-    ) -> Optional[str]:
+    ) -> Optional[Dict[str, Any]]:
         """Generate text response based on prompt.
         
         Args:
@@ -143,7 +150,7 @@ class OllamaClient:
             max_tokens: Maximum tokens to generate
             
         Returns:
-            Generated text response or None if failed
+            Dict with response, model, and processing_time, or None if failed
         """
         try:
             self.logger.debug(f"Generating text using model: {model}")
@@ -162,18 +169,25 @@ class OllamaClient:
             if system_prompt:
                 payload["system"] = system_prompt
             
-            # Make request
+            # Make request and track time
+            import time
+            start_time = time.perf_counter()
             response = requests.post(
                 f"{self.host}/api/generate",
                 json=payload,
                 timeout=self.timeout
             )
+            processing_time = time.perf_counter() - start_time
             
             if response.status_code == 200:
                 result = response.json()
                 generated_text = result.get('response', '')
-                self.logger.debug(f"Successfully generated response ({len(generated_text)} chars)")
-                return generated_text
+                self.logger.debug(f"Successfully generated response ({len(generated_text)} chars) in {processing_time:.2f}s")
+                return {
+                    'response': generated_text,
+                    'model': model,
+                    'processing_time': round(processing_time, 3)
+                }
             else:
                 self.logger.error(f"Ollama API returned status {response.status_code}: {response.text}")
                 return None

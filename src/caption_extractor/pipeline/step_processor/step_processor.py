@@ -6,10 +6,10 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
 
-from .pipeline_state_manager import PipelineStateManager
-from .ocr_processor import OCRProcessor
-from .image_agent import ImageAgent
-from .text_agent import TextAgent
+from ...pipeline_state_manager import PipelineStateManager
+from ...ocr.ocr_processor import OCRProcessor
+from ...llm.vl.image_agent import ImageAgent
+from ...llm.text.text_agent import TextAgent
 
 
 class StepProcessor:
@@ -49,6 +49,11 @@ class StepProcessor:
         """
         step_name = 'ocr_processing'
 
+        # Debug: Log entry parameters
+        self.logger.debug(f"[OCR] Entry - image_path: {image_path}")
+        self.logger.debug(f"[OCR] Entry - skip_if_completed: {skip_if_completed}")
+        self.logger.debug(f"[OCR] Entry - state keys: {state.keys() if state else 'None'}")
+        
         # Check if should skip
         if (skip_if_completed and
                 self.state_manager.is_step_completed(state, step_name)):
@@ -59,7 +64,9 @@ class StepProcessor:
             return True, state
 
         # Mark as running
+        self.logger.debug(f"[OCR] Marking step as running")
         state = self.state_manager.mark_step_running(state, step_name)
+        self.logger.debug(f"[OCR] State after mark_running: {state.get('steps', {}).get(step_name, {}).get('status')}")
 
         try:
             start_time = time.perf_counter()
@@ -67,20 +74,42 @@ class StepProcessor:
                 f"Starting {step_name} for {Path(image_path).name}"
             )
 
+            # Debug: Check image path exists
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image file not found: {image_path}")
+            self.logger.debug(f"[OCR] Image file exists: {image_path}")
+
+            # Debug: Get performance config
+            self.logger.debug(f"[OCR] Getting performance config")
             perf_config = (
                 self.config_manager.get_performance_config()
             )
+            self.logger.debug(f"[OCR] Performance config: {perf_config}")
+            
+            # Debug: Extract text
+            self.logger.debug(f"[OCR] Calling ocr_processor.extract_text")
             extracted_data = ocr_processor.extract_text(
                 image_path, perf_config
             )
+            self.logger.debug(f"[OCR] Extracted data type: {type(extracted_data)}")
+            self.logger.debug(f"[OCR] Extracted data: {extracted_data if extracted_data else 'None or empty'}")
+            
+            # Debug: Format extracted text
+            self.logger.debug(f"[OCR] Calling ocr_processor.format_extracted_text")
             ocr_data = ocr_processor.format_extracted_text(extracted_data)
+            self.logger.debug(f"[OCR] OCR data type: {type(ocr_data)}")
+            self.logger.debug(f"[OCR] OCR data keys: {ocr_data.keys() if ocr_data else 'None'}")
+            self.logger.debug(f"[OCR] OCR data content: {ocr_data}")
 
             duration = time.perf_counter() - start_time
 
-            # Mark as completed with data
+            # Debug: Mark as completed
+            self.logger.debug(f"[OCR] Marking step as completed with data")
             state = self.state_manager.mark_step_completed(
                 state, step_name, ocr_data, duration
             )
+            self.logger.debug(f"[OCR] State after mark_completed: {state.get('steps', {}).get(step_name, {}).get('status')}")
+            self.logger.debug(f"[OCR] State data present: {bool(state.get('steps', {}).get(step_name, {}).get('data'))}")
 
             elements = ocr_data.get('total_elements', 0)
             self.logger.info(
@@ -88,14 +117,20 @@ class StepProcessor:
                 f"extracted {elements} elements"
             )
 
+            # Debug: Final return
+            self.logger.debug(f"[OCR] Returning success=True")
             return True, state
 
         except Exception as e:
             error_msg = f"{step_name} failed: {str(e)}"
-            self.logger.error(error_msg)
+            self.logger.error(error_msg, exc_info=True)
+            self.logger.debug(f"[OCR] Exception type: {type(e).__name__}")
+            self.logger.debug(f"[OCR] Exception details: {e}")
             state = self.state_manager.mark_step_failed(
                 state, step_name, str(e)
             )
+            self.logger.debug(f"[OCR] State after mark_failed: {state.get('steps', {}).get(step_name, {}).get('status')}")
+            self.logger.debug(f"[OCR] Returning success=False")
             return False, state
 
     def process_image_agent_step(
@@ -156,16 +191,16 @@ class StepProcessor:
 
             # Use resized or original image
             image_to_send = resized_temp_path or image_path
-            image_analysis = image_agent.analyze_image(image_to_send)
+            vl_model_data = image_agent.analyze_image(image_to_send)
 
-            if not image_analysis:
+            if not vl_model_data:
                 raise Exception("Image agent returned no results")
 
             duration = time.perf_counter() - start_time
 
             # Mark as completed with data
             state = self.state_manager.mark_step_completed(
-                state, step_name, image_analysis, duration
+                state, step_name, vl_model_data, duration
             )
 
             self.logger.info(
@@ -232,13 +267,13 @@ class StepProcessor:
 
             # Get OCR data from previous step
             ocr_data = state['results'].get('ocr_data')
-            image_analysis = state['results'].get('image_analysis')
+            vl_model_data = state['results'].get('vl_model_data')
 
             # Prepare text input
             ocr_text = ocr_data.get('full_text', '') if ocr_data else ''
             vision_text = (
-                image_analysis.get('text', '')
-                if image_analysis else ''
+                vl_model_data.get('text', '')
+                if vl_model_data else ''
             )
             base_text = ocr_text or vision_text
 
@@ -251,7 +286,7 @@ class StepProcessor:
 
             # Process text
             text_processing = text_agent.process_text(
-                base_text, image_analysis
+                base_text, vl_model_data
             )
 
             if not text_processing:
@@ -390,9 +425,9 @@ class StepProcessor:
         """
         step_name = 'metadata_combination'
 
-        # Check if should skip
-        if (skip_if_completed and
-                self.state_manager.is_step_completed(state, step_name)):
+        # Check if should skip - but always regenerate metadata to ensure it's current
+        # This step is fast and needs to combine the latest results from all previous steps
+        if False:  # Never skip metadata combination - always regenerate
             self.logger.info(f"Skipping {step_name} - already completed")
             self.state_manager.mark_step_skipped(
                 state, step_name, "Already completed"
@@ -410,7 +445,7 @@ class StepProcessor:
 
             # Get results from all previous steps
             ocr_data = state['results'].get('ocr_data')
-            image_analysis = state['results'].get('image_analysis')
+            vl_model_data = state['results'].get('vl_model_data')
             text_processing = state['results'].get('text_processing')
             translation_result = state['results'].get(
                 'translation_result'
@@ -421,7 +456,7 @@ class StepProcessor:
             combined_metadata = metadata_combiner.combine_metadata(
                 image_path=image_path,
                 ocr_data=ocr_data,
-                image_analysis=image_analysis,
+                vl_model_data=vl_model_data,
                 text_processing=text_processing,
                 translation_result=translation_result,
                 processing_time=proc_time

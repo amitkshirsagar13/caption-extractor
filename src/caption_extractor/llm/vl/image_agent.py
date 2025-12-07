@@ -3,7 +3,7 @@
 import logging
 import re
 from typing import Dict, Any, Optional
-from .ollama_client import OllamaClient
+from ...ollama_client import OllamaClient
 
 
 class ImageAgent:
@@ -47,26 +47,22 @@ class ImageAgent:
             image_path: Path to the image file
             
         Returns:
-            Dictionary containing analysis results or None if failed
+            Dictionary containing analysis results with model and timing info, or None if failed
         """
         try:
             self.logger.info(f"Analyzing image with vision model: {image_path}")
             
             # Prepare prompt
             prompt = """Analyze this image and provide a detailed analysis with the following sections:
-
 1. **Description**: Provide a comprehensive description of what you see in the image (objects, people, colors, composition, etc.)
-
 2. **Scene**: Identify the type of scene or setting (e.g., indoor/outdoor, document/photo, nature/urban, etc.)
-
-3. **Text**: List any visible text in the image. If there's no text, state "No visible text"
-
+3. **Text**: List any visible text in the image, make sure you do not translate or change or provide any other commentary. Only provide text word 2 word exact as extracted. If there's no text, state "No visible text"
 4. **Story**: Create a brief narrative or context about what might be happening in the image or its purpose
 
 Please structure your response with clear section headers."""
             
             # Call Ollama with image
-            response = self.ollama_client.generate_with_image(
+            response_data = self.ollama_client.generate_with_image(
                 model=self.vision_model,
                 prompt=prompt,
                 image_path=image_path,
@@ -75,14 +71,23 @@ Please structure your response with clear section headers."""
                 max_tokens=self.max_tokens
             )
             
-            if not response:
+            if not response_data:
                 self.logger.error("Failed to get response from vision model")
                 return None
+            
+            # Extract response text and metadata
+            response = response_data.get('response', '')
+            model = response_data.get('model', self.vision_model)
+            processing_time = response_data.get('processing_time', 0.0)
             
             # Parse the response
             analysis = self._parse_response(response)
             
-            self.logger.info("Successfully analyzed image with vision model")
+            # Add model and timing info
+            analysis['model'] = model
+            analysis['processing_time'] = processing_time
+            
+            self.logger.info(f"Successfully analyzed image with vision model in {processing_time}s")
             self.logger.debug(f"Analysis result: {analysis}")
             
             return analysis
@@ -191,7 +196,7 @@ Please structure your response with clear section headers."""
         try:
             prompt = "Provide a brief, one-paragraph description of this image."
             
-            response = self.ollama_client.generate_with_image(
+            response_data = self.ollama_client.generate_with_image(
                 model=self.vision_model,
                 prompt=prompt,
                 image_path=image_path,
@@ -199,7 +204,9 @@ Please structure your response with clear section headers."""
                 max_tokens=200
             )
             
-            return response.strip() if response else None
+            if response_data:
+                return response_data.get('response', '').strip()
+            return None
             
         except Exception as e:
             self.logger.error(f"Error getting quick description: {e}")
