@@ -16,9 +16,9 @@ logging:
 pipeline:
   # Enable/disable individual processing components
   enable_ocr: true          # OCR text extraction using PaddleOCR
-  enable_image_agent: true  # Image analysis using visual LLM
-  enable_text_agent: true   # Text correction/completion using LLM
-  enable_translation: true # Run translator agent to translate primary_text to English when needed
+  enable_image_agent: false  # Image analysis using visual LLM
+  enable_text_agent: false   # Text correction/completion using LLM
+  enable_translation: false # Run translator agent to translate primary_text to English when needed
   # Image resize specification applied before sending images to image agent.
   # Default keeps aspect ratio and scales images to fit within 1024x1024.
   image_resize:
@@ -37,7 +37,7 @@ ollama:
   # Model configuration
   models:
     # Visual model for image analysis (image agent)
-    vision_model: "qwen3-vl:4b"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud
+    vision_model: "ministral-3:latest"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud, ministral-3:latest
     
     # Text model for text processing (text agent)
     text_model: "mistral:latest"  # Suggested: llama3.2:latest, mistral:latest, gemma2:latest
@@ -153,6 +153,11 @@ ocr:
   show_log: false  # Show detailed PaddleOCR logs
   model_dir: null  # Custom model directory path (optional)
   
+  # Model cache directory (where PaddleOCR downloads and stores models)
+  # If not specified, defaults to ~/.paddleocr
+  # Using a local path gives better control and portability
+  model_cache_dir: "models/.paddleocr"  # Local cache directory for PaddleOCR models
+  
   # Minimum confidence threshold for text recognition (0.0 - 1.0)
   # Higher values = more strict, fewer false positives
   min_confidence: 0.5
@@ -208,7 +213,8 @@ preprocessing:
   max_image_size: [2048, 2048]  # [width, height] in pixels
   
   # Convert to grayscale (can improve accuracy for black/white documents)
-  grayscale: true
+  # WARNING: Disable if combined with adaptive_threshold to prevent empty images
+  grayscale: false
   
   # Brightness adjustment (0.5 = darker, 1.0 = normal, 1.5 = brighter)
   brightness: 1.0
@@ -217,16 +223,17 @@ preprocessing:
   contrast: 1.0
   
   # Sharpening (improves edge detection)
-  sharpen: true
+  sharpen: false
   sharpen_strength: 1.0  # Higher = more sharpening (0.5 - 2.0)
   
   # Denoise (removes image noise/grain)
-  denoise: true
+  denoise: false
   denoise_strength: 10  # Higher = more denoising (5 - 30)
   
   # Adaptive thresholding (converts to binary black/white)
   # Very effective for poor quality scans or photos
-  adaptive_threshold: true
+  # WARNING: Can cause issues if image preprocessing produces invalid images
+  adaptive_threshold: false
   threshold_block_size: 11  # Must be odd number (3, 5, 7, 9, 11, etc.)
   threshold_c: 2  # Constant subtracted from mean
   

@@ -205,6 +205,37 @@ Total time: 185.5s
 3. **Enable auto-resize**: For large images, enable `auto_resize` in performance config
 4. **Batch size**: Adjust `batch_size` based on available memory
 
+## Troubleshooting
+
+### Network Error: "No model hoster is available"
+
+If you see this error, PaddleOCR cannot download required models. Solutions:
+
+**Option 1: Download models (recommended)**
+```bash
+python download_models.py
+```
+
+**Option 2: Use proxy/VPN**
+```bash
+# Windows
+set HTTP_PROXY=http://proxy:port
+set HTTPS_PROXY=http://proxy:port
+
+# Linux/Mac
+export HTTP_PROXY=http://proxy:port
+export HTTPS_PROXY=http://proxy:port
+```
+
+**Option 3: Manual download**  
+See [TROUBLESHOOTING_NETWORK.md](TROUBLESHOOTING_NETWORK.md) for detailed instructions.
+
+### Other Issues
+
+- **Check logs**: Review `logs/caption_extractor.log`
+- **Enable debug**: Set `logging.level: DEBUG` in `config.yml`
+- **Verify setup**: Run `./start.sh --setup` to reinstall dependencies
+
 ## Development
 
 ### Adding Tests
@@ -237,7 +268,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues and questions:
 
-1. Check the troubleshooting section
-2. Review the configuration options
-3. Check the log files in `logs/`
-4. Create an issue in the project repository
+1. Check the troubleshooting section above
+2. Review [TROUBLESHOOTING_NETWORK.md](TROUBLESHOOTING_NETWORK.md) for network issues
+3. Review the configuration options in `config.yml`
+4. Check the log files in `logs/`
+5. Create an issue in the project repository

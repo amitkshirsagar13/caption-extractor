@@ -24,8 +24,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "paddlepaddle>=2.5.0",
-    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0,<3.0.0",
+    "paddleocr>=2.7.0,<2.8.0",
     "pyyaml>=6.0",
     "pillow>=10.0.0",
     "opencv-python-headless>=4.8.0",

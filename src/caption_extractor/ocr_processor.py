@@ -1,118 +1,139 @@
 """Enhanced OCR processing using PaddleOCR PP-OCRv5 with advanced configuration."""
-
-import os
 import logging
-from typing import List, Dict, Any, Tuple, Optional
-from paddleocr import PaddleOCR
+from pathlib import Path
+from typing import List, Tuple, Optional, Dict, Any
 import cv2
 import numpy as np
+from paddleocr import PaddleOCR
 from PIL import Image, ImageEnhance
+import os
 
+logger = logging.getLogger(__name__)
 
 class OCRProcessor:
-    """Handles OCR operations using PaddleOCR with enhanced accuracy controls."""
+    """Handles OCR processing using PaddleOCR with enhanced configuration."""
     
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the OCR processor.
+    def __init__(self, config: dict):
+        """Initialize OCR processor with configuration.
         
         Args:
-            config: OCR configuration dictionary
+            config: Configuration dictionary containing OCR settings
         """
+        self.logger = logger
         self.config = config
-        self.logger = logging.getLogger(__name__)
-        self.ocr_engine = None
-        self._initialize_ocr()
+        self.ocr_config = config.get('ocr', {})
+        self.preprocessing_config = config.get('preprocessing', {})
+        self.post_processing_config = config.get('post_processing', {})
+        
+        # Initialize PaddleOCR with configuration
+        self._init_paddleocr()
     
-    def _initialize_ocr(self) -> None:
-        """Initialize PaddleOCR engine with configuration."""
+    def _init_paddleocr(self):
+        """Initialize PaddleOCR with configuration settings."""
+        # Disable oneDNN to prevent segmentation faults on Windows
+        os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
+        os.environ['FLAGS_use_mkldnn'] = '0'
+        
+        # Enable PaddleOCR logging to see download URLs
+        os.environ['PPOCR_DEBUG'] = '1'
+        
+        # Set custom cache directory if configured
+        cache_dir = self.ocr_config.get('model_cache_dir')
+        if cache_dir:
+            cache_dir = os.path.abspath(os.path.expanduser(cache_dir))
+            os.environ['PPOCR_HOME'] = cache_dir
+            logger.info(f"Using configured PaddleOCR cache directory: {cache_dir}")
+        else:
+            cache_dir = os.path.expanduser('~/.paddleocr')
+            logger.info(f"Using default PaddleOCR cache directory: {cache_dir}")
+        
+        logger.info("Initializing PaddleOCR...")
+        logger.info(f"OCR Configuration: {self.ocr_config}")
+        
+        # Basic settings
+        ocr_params = {
+            'lang': self.ocr_config.get('lang', 'en'),
+            'use_angle_cls': self.ocr_config.get('use_angle_cls', True),
+            # 'use_gpu': False,  # Force CPU to avoid GPU-related crashes
+            # 'show_log': False,  # Reduce verbosity
+        }
+        
+        # Model directory (if specified)
+        model_dir = self.ocr_config.get('model_dir')
+        if model_dir:
+            ocr_params['model_dir'] = model_dir
+            logger.info(f"Using model directory: {model_dir}")
+        
+        # Detection parameters
+        det_config = self.ocr_config.get('detection', {})
+        ocr_params.update({
+            'det_db_thresh': det_config.get('det_db_thresh', 0.3),
+            'det_db_box_thresh': det_config.get('det_db_box_thresh', 0.5),
+            'det_db_unclip_ratio': det_config.get('det_db_unclip_ratio', 1.6),
+        })
+        
+        # Recognition parameters - reduce batch size to prevent crashes
+        rec_config = self.ocr_config.get('recognition', {})
+        ocr_params.update({
+            'rec_batch_num': 1,  # Use batch size of 1 to avoid memory issues
+        })
+        
+        # Classification parameters - reduce batch size
+        cls_config = self.ocr_config.get('classification', {})
+        ocr_params.update({
+            'cls_batch_num': 1,  # Use batch size of 1 to avoid memory issues
+        })
+        
+        logger.info("=" * 80)
+        logger.info("PaddleOCR will now attempt to download models if not cached.")
+        logger.info("Model download URLs for English (en) language:")
+        logger.info("-" * 80)
+        logger.info("Detection Model (PP-OCRv4):")
+        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_det_infer.tar")
+        logger.info("")
+        logger.info("Recognition Model (PP-OCRv4):")
+        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar")
+        logger.info("")
+        logger.info("Angle Classification Model:")
+        logger.info("  URL: https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar")
+        logger.info("")
+        logger.info("Models will be downloaded to:")
+        logger.info(f"  Cache directory: {cache_dir}")
+        logger.info(f"  (Configure via ocr.model_cache_dir in config.yml)")
+        logger.info("=" * 80)
+        
         try:
-            self.logger.info("Initializing PaddleOCR engine...")
+            logger.info("Attempting to initialize PaddleOCR with parameters:")
+            for key, value in ocr_params.items():
+                logger.info(f"  {key}: {value}")
             
-            # Set environment variables to prevent conflicts
-            os.environ['OMP_NUM_THREADS'] = '1'
-            os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
-            os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-            
-            # Get OCR configuration section
-            ocr_config = self.config.get('ocr', {})
-            
-            # Setup OCR parameters with enhanced controls
-            ocr_params = {
-                'use_angle_cls': ocr_config.get('use_angle_cls', True),
-                'lang': ocr_config.get('lang', 'en'),
-                # 'use_gpu': ocr_config.get('use_gpu', False),
-                # 'show_log': ocr_config.get('show_log', False),
-            }
-            
-            # Add detection parameters for better accuracy
-            detection_config = ocr_config.get('detection', {})
-            if detection_config.get('det_db_thresh') is not None:
-                ocr_params['det_db_thresh'] = detection_config['det_db_thresh']
-            if detection_config.get('det_db_box_thresh') is not None:
-                ocr_params['det_db_box_thresh'] = detection_config['det_db_box_thresh']
-            if detection_config.get('det_db_unclip_ratio') is not None:
-                ocr_params['det_db_unclip_ratio'] = detection_config['det_db_unclip_ratio']
-            if detection_config.get('use_dilation') is not None:
-                ocr_params['use_dilation'] = detection_config['use_dilation']
-            if detection_config.get('det_db_score_mode') is not None:
-                ocr_params['det_db_score_mode'] = detection_config['det_db_score_mode']
-            
-            # Add recognition parameters
-            recognition_config = ocr_config.get('recognition', {})
-            if recognition_config.get('rec_batch_num') is not None:
-                ocr_params['rec_batch_num'] = recognition_config['rec_batch_num']
-            if recognition_config.get('max_text_length') is not None:
-                ocr_params['max_text_length'] = recognition_config['max_text_length']
-            if recognition_config.get('rec_algorithm') is not None:
-                ocr_params['rec_algorithm'] = recognition_config['rec_algorithm']
-            
-            # Add classification parameters
-            classification_config = ocr_config.get('classification', {})
-            if classification_config.get('cls_batch_num') is not None:
-                ocr_params['cls_batch_num'] = classification_config['cls_batch_num']
-            if classification_config.get('cls_thresh') is not None:
-                ocr_params['cls_thresh'] = classification_config['cls_thresh']
-            
-            # Set model directory if specified
-            model_dir = ocr_config.get('model_dir')
-            if model_dir and os.path.exists(model_dir):
-                self.logger.info(f"Using model directory: {model_dir}")
-            
-            # Initialize with error handling
-            try:
-                self.logger.info("Creating PaddleOCR instance...")
-                # Ensure a conservative default for GPU usage to avoid unexpected device-related issues
-                # if 'use_gpu' not in ocr_params:
-                #     ocr_params['use_gpu'] = ocr_config.get('use_gpu', False)
-
-                # Remove any keys with value None to avoid unexpected constructor errors
-                safe_params = {k: v for k, v in ocr_params.items() if v is not None}
-
-                self.ocr_engine = PaddleOCR(**safe_params)
-                self.logger.info("PaddleOCR engine initialized successfully")
-                
-                # Test initialization
-                test_image = np.ones((100, 100, 3), dtype=np.uint8) * 255
-                self.logger.info("Testing PaddleOCR with dummy image...")
-                test_result = self.ocr_engine.ocr(test_image)
-                self.logger.info("PaddleOCR test successful - ready for processing")
-                
-            except Exception as init_error:
-                self.logger.error(f"PaddleOCR initialization failed: {init_error}")
-                # Fallback initialization
-                fallback_params = {
-                    'lang': 'en',
-                    'use_angle_cls': False,
-                }
-                self.logger.info("Attempting fallback initialization...")
-                # Force conservative fallback parameters
-                fallback_params['use_gpu'] = False
-                self.ocr_engine = PaddleOCR(**fallback_params)
-                self.logger.info("PaddleOCR initialized with fallback parameters")
+            self.ocr = PaddleOCR(**ocr_params)
+            self.ocr_engine = self.ocr  # Alias for consistency
+            logger.info("PaddleOCR initialized successfully!")
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize PaddleOCR: {e}")
-            raise RuntimeError(f"OCR initialization failed: {e}")
+            logger.error("=" * 80)
+            logger.error("PADDLEOCR INITIALIZATION FAILED")
+            logger.error("=" * 80)
+            logger.error(f"Error: {str(e)}")
+            logger.error("")
+            logger.error("TROUBLESHOOTING STEPS:")
+            logger.error("1. Check if you can access these URLs in your browser:")
+            logger.error("   - https://paddleocr.bj.bcebos.com/")
+            logger.error("   - https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_det_infer.tar")
+            logger.error("")
+            logger.error("2. If URLs are blocked, download models manually:")
+            logger.error("   python download_models.py")
+            logger.error("")
+            logger.error("3. Check if models are already cached:")
+            logger.error(f"   dir {os.path.expanduser('~')}\\.paddleocr")
+            logger.error("")
+            logger.error("4. If behind proxy, set environment variables:")
+            logger.error("   set HTTP_PROXY=http://proxy:port")
+            logger.error("   set HTTPS_PROXY=http://proxy:port")
+            logger.error("=" * 80)
+            raise
+
     
     def preprocess_image(self, image_path: str, preprocessing_config: Dict[str, Any] = None) -> np.ndarray:
         """Preprocess image for OCR with enhanced controls.
@@ -147,13 +168,51 @@ class OCRProcessor:
 
             # Ensure image is a contiguous uint8 numpy array suitable for Paddle
             try:
-                if image is None or getattr(image, 'size', 0) == 0:
-                    raise ValueError(f"Preprocessed image is empty: {image_path}")
-
+                # Comprehensive validation
+                if image is None:
+                    raise ValueError(f"Preprocessed image is None: {image_path}")
+                
+                if not isinstance(image, np.ndarray):
+                    raise ValueError(f"Preprocessed image is not a numpy array: {image_path}")
+                
+                if image.size == 0:
+                    raise ValueError(f"Preprocessed image has zero size: {image_path}")
+                
+                if len(image.shape) < 2:
+                    raise ValueError(f"Preprocessed image has invalid shape {image.shape}: {image_path}")
+                
+                # Check minimum dimensions
+                if image.shape[0] < 1 or image.shape[1] < 1:
+                    raise ValueError(f"Preprocessed image has invalid dimensions {image.shape}: {image_path}")
+                
+                # Ensure 3-channel BGR format for PaddleOCR
+                if len(image.shape) == 2:
+                    # Grayscale - convert to BGR
+                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                elif len(image.shape) == 3:
+                    if image.shape[2] == 1:
+                        # Single channel - convert to BGR
+                        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                    elif image.shape[2] == 4:
+                        # RGBA - convert to BGR
+                        image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+                    elif image.shape[2] != 3:
+                        raise ValueError(f"Preprocessed image has unsupported channel count {image.shape[2]}: {image_path}")
+                
                 # Force uint8 and contiguous layout
                 if image.dtype != np.uint8:
-                    image = image.astype(np.uint8)
+                    # Normalize to 0-255 range if needed
+                    if image.max() <= 1.0:
+                        image = (image * 255).astype(np.uint8)
+                    else:
+                        image = image.astype(np.uint8)
+                
                 image = np.ascontiguousarray(image)
+                
+                # Final validation
+                if image.size == 0 or image.shape[0] < 1 or image.shape[1] < 1:
+                    raise ValueError(f"Final preprocessed image is invalid: {image_path}")
+                    
             except Exception as conv_err:
                 self.logger.error(f"Invalid image after preprocessing for {image_path}: {conv_err}")
                 raise
@@ -175,57 +234,122 @@ class OCRProcessor:
         Returns:
             Preprocessed image
         """
+        # Validate input
+        if image is None or image.size == 0:
+            raise ValueError("Cannot preprocess empty or None image")
+        
         # 1. Resize if needed
         if config.get('auto_resize', True):
             max_size = tuple(config.get('max_image_size', [2048, 2048]))
             image = self._resize_image(image, max_size)
+            
+            # Validate after resize
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after resize")
         
         # 2. Convert to grayscale if configured
         if config.get('grayscale', False):
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)  # Convert back for PaddleOCR
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)  # Convert back for PaddleOCR
+            
+            # Validate after grayscale conversion
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after grayscale conversion")
         
         # 3. Adjust brightness and contrast
         brightness = config.get('brightness', 1.0)
         contrast = config.get('contrast', 1.0)
         if brightness != 1.0 or contrast != 1.0:
             image = self._adjust_brightness_contrast(image, brightness, contrast)
+            
+            # Validate after brightness/contrast
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after brightness/contrast adjustment")
         
         # 4. Apply sharpening
         if config.get('sharpen', False):
             sharpen_strength = config.get('sharpen_strength', 1.0)
             image = self._apply_sharpening(image, sharpen_strength)
+            
+            # Validate after sharpen
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after sharpening")
         
         # 5. Denoise
         if config.get('denoise', False):
-            denoise_strength = config.get('denoise_strength', 10)
-            image = cv2.fastNlMeansDenoisingColored(image, None, denoise_strength, denoise_strength, 7, 21)
+            if image is None or image.size == 0:
+                self.logger.warning("Skipping denoise - image is empty")
+            else:
+                try:
+                    denoise_strength = config.get('denoise_strength', 10)
+                    result = cv2.fastNlMeansDenoisingColored(image, None, denoise_strength, denoise_strength, 7, 21)
+                    
+                    if result is not None and result.size > 0:
+                        image = result
+                    else:
+                        self.logger.warning("Denoise produced empty result, keeping original")
+                except Exception as e:
+                    self.logger.warning(f"Denoise failed: {e}, keeping original image")
         
         # 6. Apply adaptive thresholding for better text detection
         if config.get('adaptive_threshold', False):
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            # Ensure block size is an odd integer >=3
-            block_size = int(config.get('threshold_block_size', 11) or 11)
-            if block_size % 2 == 0:
-                block_size = block_size - 1 if block_size > 3 else 3
-            block_size = max(3, block_size)
-            thresh = cv2.adaptiveThreshold(
-                gray, 255,
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                cv2.THRESH_BINARY,
-                block_size,
-                int(config.get('threshold_c', 2))
-            )
-            image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+            # Validate image before thresholding
+            if image is None or image.size == 0:
+                self.logger.warning("Skipping adaptive threshold - image is empty")
+            else:
+                if len(image.shape) == 3 and image.shape[2] == 3:
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                elif len(image.shape) == 2:
+                    gray = image
+                else:
+                    self.logger.warning(f"Skipping adaptive threshold - unexpected shape {image.shape}")
+                    gray = None
+                
+                if gray is not None and gray.size > 0:
+                    # Ensure block size is an odd integer >=3
+                    block_size = int(config.get('threshold_block_size', 11) or 11)
+                    if block_size % 2 == 0:
+                        block_size = block_size - 1 if block_size > 3 else 3
+                    block_size = max(3, block_size)
+                    
+                    try:
+                        thresh = cv2.adaptiveThreshold(
+                            gray, 255,
+                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                            cv2.THRESH_BINARY,
+                            block_size,
+                            int(config.get('threshold_c', 2))
+                        )
+                        
+                        # Validate threshold result
+                        if thresh is not None and thresh.size > 0:
+                            image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+                        else:
+                            self.logger.warning("Adaptive threshold produced empty result, keeping original")
+                    except Exception as e:
+                        self.logger.warning(f"Adaptive threshold failed: {e}, keeping original image")
         
         # 7. Deskew image
         if config.get('deskew', False):
             image = self._deskew_image(image)
+            
+            # Validate after deskew
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after deskew")
         
         # 8. Remove borders/margins
         if config.get('remove_borders', False):
             border_size = config.get('border_size', 10)
             image = self._remove_borders(image, border_size)
+            
+            # Validate after border removal
+            if image is None or image.size == 0:
+                raise ValueError("Image became empty after border removal")
+        
+        # Final validation before returning
+        if image is None or image.size == 0:
+            raise ValueError("Preprocessing resulted in empty image")
         
         return image
     
@@ -244,28 +368,58 @@ class OCRProcessor:
     
     def _adjust_brightness_contrast(self, image: np.ndarray, brightness: float, contrast: float) -> np.ndarray:
         """Adjust image brightness and contrast."""
-        # Convert to PIL for easier manipulation
-        pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        
-        # Adjust brightness
-        if brightness != 1.0:
-            enhancer = ImageEnhance.Brightness(pil_image)
-            pil_image = enhancer.enhance(brightness)
-        
-        # Adjust contrast
-        if contrast != 1.0:
-            enhancer = ImageEnhance.Contrast(pil_image)
-            pil_image = enhancer.enhance(contrast)
-        
-        # Convert back to OpenCV format
-        return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        try:
+            # Validate input
+            if image is None or image.size == 0:
+                self.logger.warning("Cannot adjust brightness/contrast on empty image")
+                return image
+            
+            # Convert to PIL for easier manipulation
+            pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            
+            # Adjust brightness
+            if brightness != 1.0:
+                enhancer = ImageEnhance.Brightness(pil_image)
+                pil_image = enhancer.enhance(brightness)
+            
+            # Adjust contrast
+            if contrast != 1.0:
+                enhancer = ImageEnhance.Contrast(pil_image)
+                pil_image = enhancer.enhance(contrast)
+            
+            # Convert back to OpenCV format
+            result = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+            
+            # Validate result
+            if result is None or result.size == 0:
+                self.logger.warning("Brightness/contrast adjustment produced empty image, returning original")
+                return image
+            
+            return result
+        except Exception as e:
+            self.logger.warning(f"Failed to adjust brightness/contrast: {e}, returning original image")
+            return image
     
     def _apply_sharpening(self, image: np.ndarray, strength: float) -> np.ndarray:
         """Apply sharpening filter to image."""
-        kernel = np.array([[-1, -1, -1],
-                          [-1, 9 * strength, -1],
-                          [-1, -1, -1]]) / strength
-        return cv2.filter2D(image, -1, kernel)
+        try:
+            if image is None or image.size == 0:
+                self.logger.warning("Cannot sharpen empty image")
+                return image
+            
+            kernel = np.array([[-1, -1, -1],
+                              [-1, 9 * strength, -1],
+                              [-1, -1, -1]]) / strength
+            result = cv2.filter2D(image, -1, kernel)
+            
+            if result is None or result.size == 0:
+                self.logger.warning("Sharpening produced empty image, returning original")
+                return image
+            
+            return result
+        except Exception as e:
+            self.logger.warning(f"Sharpening failed: {e}, returning original image")
+            return image
     
     def _deskew_image(self, image: np.ndarray) -> np.ndarray:
         """Deskew image using Hough transform."""
@@ -335,30 +489,98 @@ class OCRProcessor:
             if self.ocr_engine is None:
                 raise Exception("OCR engine not initialized")
             
-            # Preprocess image
-            image = self.preprocess_image(image_path)
+            # Check if file exists
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image file not found: {image_path}")
             
-            # Perform OCR
             self.logger.debug(f"Processing image: {image_path}")
-
-            # Validate image before passing to PaddleOCR to avoid empty-tensor errors
-            if image is None or getattr(image, 'size', 0) == 0:
-                raise ValueError(f"Preprocessed image is empty for {image_path}")
+            
+            # Load and preprocess image as numpy array
+            # Using numpy array is more reliable than passing path to avoid PaddleOCR segfaults
+            image = cv2.imread(image_path)
+            if image is None:
+                # Try with PIL as fallback
+                pil_image = Image.open(image_path)
+                image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+            
+            if image is None:
+                raise Exception(f"Cannot load image: {image_path}")
+            
+            self.logger.debug(f"Loaded image {image_path}: shape={image.shape}, dtype={image.dtype}")
+            
+            # Apply minimal preprocessing to ensure compatibility
+            # Resize if too large
+            preproc_config = self.config.get('preprocessing', {})
+            if preproc_config.get('auto_resize', True):
+                max_size = tuple(preproc_config.get('max_image_size', [2048, 2048]))
+                image = self._resize_image(image, max_size)
+            
+            # Validate image before passing to PaddleOCR
+            if image is None or image.size == 0:
+                raise ValueError(f"Image is empty after loading: {image_path}")
 
             # Ensure proper dtype and memory layout
             if image.dtype != np.uint8:
                 self.logger.debug("Converting image dtype to uint8 for OCR")
                 image = image.astype(np.uint8)
             image = np.ascontiguousarray(image)
+            
+            # Ensure 3-channel BGR format
+            if len(image.shape) == 2:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            elif len(image.shape) == 3 and image.shape[2] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+            
+            # Final validation
+            if len(image.shape) != 3 or image.shape[2] != 3:
+                raise ValueError(f"Image must be 3-channel BGR format. Got shape: {image.shape} for {image_path}")
+            
+            if image.shape[0] < 1 or image.shape[1] < 1:
+                raise ValueError(f"Image has invalid dimensions: {image.shape} for {image_path}")
+            
+            self.logger.info(f"Passing to PaddleOCR: shape={image.shape}, dtype={image.dtype}, contiguous={image.flags['C_CONTIGUOUS']}")
 
             try:
                 results = self.ocr_engine.ocr(image)
             except Exception as ocr_err:
-                # Provide an enriched error message with common troubleshooting hints
+                error_msg = str(ocr_err)
+                
+                # Check for PaddlePaddle internal errors (vector, trace_order, dependency, etc.)
+                if any(keyword in error_msg.lower() for keyword in ['vector<bool>', 'trace_order', 'dependency_count', 'preconditionnotmet']):
+                    self.logger.error("=" * 80)
+                    self.logger.error("CRITICAL: PaddlePaddle Internal Error Detected")
+                    self.logger.error("=" * 80)
+                    self.logger.error(f"Error: {error_msg}")
+                    self.logger.error("")
+                    self.logger.error("This error indicates a PaddlePaddle bug or incompatibility.")
+                    self.logger.error("")
+                    self.logger.error("RECOMMENDED FIXES:")
+                    self.logger.error("1. Reinstall PaddlePaddle and PaddleOCR:")
+                    self.logger.error("   pip uninstall paddlepaddle paddleocr -y")
+                    self.logger.error("   pip install paddlepaddle")
+                    self.logger.error("   pip install paddleocr")
+                    self.logger.error("")
+                    self.logger.error("2. Clear PaddleOCR model cache:")
+                    self.logger.error(f"   rmdir /s /q {os.path.expanduser('~')}\\.paddleocr")
+                    self.logger.error("")
+                    self.logger.error("3. If using Python 3.13, downgrade to Python 3.11:")
+                    self.logger.error("   PaddlePaddle may not fully support Python 3.13 yet")
+                    self.logger.error("")
+                    self.logger.error("4. Try processing one image at a time (disable batch processing)")
+                    self.logger.error("")
+                    self.logger.error("5. Alternative: Disable OCR in config.yml:")
+                    self.logger.error("   pipeline:")
+                    self.logger.error("     enable_ocr: false")
+                    self.logger.error("")
+                    self.logger.error("See PADDLEOCR_FIX.md for detailed instructions")
+                    self.logger.error("=" * 80)
+                    raise RuntimeError(f"PaddlePaddle internal error - reinstallation required: {error_msg}")
+                
+                # Generic error handling
                 hint = (
                     "PaddleOCR raised an error while processing the image. "
-                    "Common causes: empty/zero-sized image, wrong dtype, or device/config mismatch. "
-                    "Ensure the image is a non-empty uint8 numpy array (H,W,3) and that Paddle is installed correctly."
+                    "Common causes: empty/zero-sized image, wrong dtype, device/config mismatch, "
+                    "or corrupted PaddlePaddle installation."
                 )
                 self.logger.error(f"OCR engine error for {image_path}: {ocr_err} -- {hint}")
                 raise

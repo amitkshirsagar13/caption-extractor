@@ -217,7 +217,11 @@ main() {
     echo ""
     
     # Activate virtual environment and run the program
-    source .venv/bin/activate
+    if [ -f ".venv/Scripts/activate" ]; then
+        source .venv/Scripts/activate
+    else
+        source .venv/bin/activate
+    fi
     python -m caption_extractor.main $CONFIG_FILE $INPUT_FOLDER $THREADS $VERBOSE
     
     exit_code=$?
