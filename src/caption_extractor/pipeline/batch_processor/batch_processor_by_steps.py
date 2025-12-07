@@ -19,7 +19,7 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
-from ...pipeline_state_manager import PipelineStateManager
+from ..pipeline_state_manager import PipelineStateManager
 from ..step_processor.step_processor import StepProcessor
 from ..metadata_combiner.metadata_combiner import MetadataCombiner
 

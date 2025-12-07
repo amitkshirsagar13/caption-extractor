@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
 
-from ...pipeline_state_manager import PipelineStateManager
+from ..pipeline_state_manager import PipelineStateManager
 from ...ocr.ocr_processor import OCRProcessor
 from ...llm.vl.image_agent import ImageAgent
 from ...llm.text.text_agent import TextAgent

@@ -8,7 +8,7 @@ from pathlib import Path
 from .config_manager import ConfigManager
 from .ocr.ocr_processor import OCRProcessor
 from .pipeline.image_processor import ImageProcessor
-from .ollama_client import OllamaClient
+from .llm.ollama_client import OllamaClient
 from .llm.vl.image_agent import ImageAgent
 from .llm.text.text_agent import TextAgent
 from .llm.translation.translator_agent import TranslatorAgent

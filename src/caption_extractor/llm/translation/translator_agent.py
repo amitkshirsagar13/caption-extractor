@@ -2,7 +2,7 @@
 
 import logging
 from typing import Dict, Any, Optional
-from ...ollama_client import OllamaClient
+from ..ollama_client import OllamaClient
 
 
 class TranslatorAgent:

@@ -14,7 +14,7 @@ from ...llm.text.text_agent import TextAgent
 from ...llm.translation.translator_agent import TranslatorAgent
 from ..metadata_combiner.metadata_combiner import MetadataCombiner
 from .step_processor import StepProcessor
-from ...pipeline_state_manager import PipelineStateManager
+from ..pipeline_state_manager import PipelineStateManager
 
 
 class SingleImageProcessor:
@@ -53,7 +53,7 @@ class SingleImageProcessor:
         """Get or create image agent instance (lazy loading)."""
         if self._image_agent is None:
             self.logger.info("Initializing Image agent")
-            from ...ollama_client import OllamaClient
+            from ...llm.ollama_client import OllamaClient
             ollama_client = OllamaClient(self.config_manager.config)
             self._image_agent = ImageAgent(self.config_manager.config, ollama_client)
         return self._image_agent
@@ -62,7 +62,7 @@ class SingleImageProcessor:
         """Get or create text agent instance (lazy loading)."""
         if self._text_agent is None:
             self.logger.info("Initializing Text agent")
-            from ...ollama_client import OllamaClient
+            from ...llm.ollama_client import OllamaClient
             ollama_client = OllamaClient(self.config_manager.config)
             self._text_agent = TextAgent(self.config_manager.config, ollama_client)
         return self._text_agent
@@ -71,7 +71,7 @@ class SingleImageProcessor:
         """Get or create translator agent instance (lazy loading)."""
         if self._translator_agent is None:
             self.logger.info("Initializing Translator agent")
-            from ...ollama_client import OllamaClient
+            from ...llm.ollama_client import OllamaClient
             ollama_client = OllamaClient(self.config_manager.config)
             self._translator_agent = TranslatorAgent(self.config_manager.config, ollama_client)
         return self._translator_agent
