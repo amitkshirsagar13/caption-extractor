@@ -400,6 +400,33 @@ async def get_performance_by_type(request_type: str):
     return performance_stats.get_stats(request_type=request_type)
 
 
+@app.post("/performance/save")
+async def save_performance_stats():
+    """Manually trigger saving performance statistics to file.
+    
+    This endpoint allows you to save the current statistics immediately
+    instead of waiting for the periodic save interval.
+    """
+    if performance_stats is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Performance tracking not initialized"
+        )
+    
+    try:
+        performance_stats.save_stats_to_file()
+        return {
+            "status": "success",
+            "message": "Performance statistics saved successfully",
+            "file_location": f"{performance_stats.log_location}/performance_stats.yml"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save performance statistics: {str(e)}"
+        )
+
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):

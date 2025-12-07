@@ -12,7 +12,7 @@ logging:
 performance_logging:
   enabled: true  # Enable periodic performance statistics logging
   log_location: "logs/performance"  # Directory to store performance logs
-  periodicity_seconds: 600  # Log interval in seconds (600 = 10 minutes)
+  periodicity_seconds: 60  # Log interval in seconds (600 = 10 minutes)
 
 # API Configuration
 api:
@@ -62,10 +62,10 @@ ollama:
   # Model configuration
   models:
     # Visual model for image analysis (image agent)
-    vision_model: "qwen3-vl:4b"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud, ministral-3:latest
+    vision_model: "gemma3"  # Suggested: llava:latest, llava:13b, bakllava, qwen3-vl:4b, qwen3-vl:235b-cloud, ministral-3:latest
     
     # Text model for text processing (text agent)
-    text_model: "mistral:latest"  # Suggested: llama3.2:latest, mistral:latest, gemma2:latest
+    text_model: "gemma3"  # Suggested: llama3.2:latest, mistral:latest, gemma2:latest
   
   # Image Agent Configuration
   image_agent:
