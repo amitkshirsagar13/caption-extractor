@@ -138,7 +138,7 @@ class MetadataCombiner:
                 }
             else:
                 metadata['translation'] = {
-                    'translated_text': '',
+                    'translated_text': text_processing.get('corrected_text', '') if text_processing else '',
                     'note': 'Translation was disabled or not needed'
                 }
             
