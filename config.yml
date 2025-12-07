@@ -15,8 +15,8 @@ logging:
 # Processing Pipeline Control
 pipeline:
   # Enable/disable individual processing components
-  enable_ocr: true          # OCR text extraction using PaddleOCR
-  enable_image_agent: false  # Image analysis using visual LLM
+  enable_ocr: false          # OCR text extraction using PaddleOCR
+  enable_image_agent: true  # Image analysis using visual LLM
   enable_text_agent: false   # Text correction/completion using LLM
   enable_translation: false # Run translator agent to translate primary_text to English when needed
   # Image resize specification applied before sending images to image agent.
