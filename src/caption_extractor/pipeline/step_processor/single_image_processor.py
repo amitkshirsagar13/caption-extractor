@@ -5,7 +5,7 @@ import time
 import logging
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from ...config_manager import ConfigManager
 from ...ocr.ocr_processor import OCRProcessor
@@ -16,17 +16,26 @@ from ..metadata_combiner.metadata_combiner import MetadataCombiner
 from .step_processor import StepProcessor
 from ..pipeline_state_manager import PipelineStateManager
 
+if TYPE_CHECKING:
+    from ...performance import PerformanceStatsManager
+
 
 class SingleImageProcessor:
     """Process a single image through the configured pipeline."""
 
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(
+        self, 
+        config_manager: ConfigManager,
+        performance_stats: Optional['PerformanceStatsManager'] = None
+    ):
         """Initialize the single image processor.
         
         Args:
             config_manager: Configuration manager instance
+            performance_stats: Optional performance statistics manager
         """
         self.config_manager = config_manager
+        self.performance_stats = performance_stats
         self.logger = logging.getLogger(__name__)
         self.metadata_combiner = MetadataCombiner()
         self.state_manager = PipelineStateManager()
@@ -37,6 +46,11 @@ class SingleImageProcessor:
         self._image_agent = None
         self._text_agent = None
         self._translator_agent = None
+        
+        if self.performance_stats:
+            self.logger.info("SingleImageProcessor initialized WITH performance tracking")
+        else:
+            self.logger.warning("SingleImageProcessor initialized WITHOUT performance tracking")
         
         self.logger.info("SingleImageProcessor initialized")
 
@@ -130,13 +144,27 @@ class SingleImageProcessor:
             # Step 1: OCR Processing
             if process_ocr:
                 try:
+                    step_start = time.perf_counter()
                     ocr_processor = self._get_ocr_processor()
                     success, state = self.step_processor.process_ocr_step(
                         image_path, state, ocr_processor, skip_if_completed=False
                     )
+                    step_time = time.perf_counter() - step_start
+                    
+                    # Track performance
+                    if self.performance_stats:
+                        self.logger.info(f"Tracking OCR performance: {step_time:.3f}s")
+                        self.performance_stats.track_request(
+                            request_type='ocr',
+                            model_name='paddleocr',
+                            processing_time=step_time
+                        )
+                    else:
+                        self.logger.warning("Performance stats not available for OCR tracking")
+                    
                     if success and state.get('pipeline_status', {}).get('steps', {}).get('ocr_processing', {}).get('data'):
                         ocr_data = state['pipeline_status']['steps']['ocr_processing']['data']
-                        self.logger.info(f"OCR completed: {ocr_data.get('total_elements', 0)} elements")
+                        self.logger.info(f"OCR completed: {ocr_data.get('total_elements', 0)} elements in {step_time:.2f}s")
                     else:
                         step_status = state.get('pipeline_status', {}).get('steps', {}).get('ocr_processing', {}).get('status')
                         step_error = state.get('pipeline_status', {}).get('steps', {}).get('ocr_processing', {}).get('error')
@@ -152,6 +180,7 @@ class SingleImageProcessor:
             
             # Step 2: Image Agent Analysis
             if process_image_agent:
+                step_start = time.perf_counter()
                 image_agent = self._get_image_agent()
                 
                 # Override model if specified
@@ -159,19 +188,32 @@ class SingleImageProcessor:
                     self.logger.info(f"Using vision model: {vision_model}")
                     image_agent.vision_model = vision_model
                 
+                model_name = vision_model or image_agent.vision_model
+                
                 resize_spec = pipeline_config.get('image_resize', {})
                 success, state = self.step_processor.process_image_agent_step(
                     image_path, state, image_agent,
                     skip_if_completed=False, resize_spec=resize_spec
                 )
+                step_time = time.perf_counter() - step_start
+                
+                # Track performance
+                if self.performance_stats:
+                    self.performance_stats.track_request(
+                        request_type='image',
+                        model_name=model_name,
+                        processing_time=step_time
+                    )
+                
                 if success and state.get('pipeline_status', {}).get('steps', {}).get('image_agent_analysis', {}).get('data'):
                     vl_model_data = state['pipeline_status']['steps']['image_agent_analysis']['data']
-                    self.logger.info("Image agent analysis completed")
+                    self.logger.info(f"Image agent analysis completed in {step_time:.2f}s")
                 else:
                     self.logger.warning("Image agent analysis failed or returned no data")
             
             # Step 3: Text Agent Processing
             if process_text_agent:
+                step_start = time.perf_counter()
                 text_agent = self._get_text_agent()
                 
                 # Override model if specified
@@ -179,12 +221,24 @@ class SingleImageProcessor:
                     self.logger.info(f"Using text model: {text_model}")
                     text_agent.text_model = text_model
                 
+                model_name = text_model or text_agent.text_model
+                
                 success, state = self.step_processor.process_text_agent_step(
                     image_path, state, text_agent, skip_if_completed=False
                 )
+                step_time = time.perf_counter() - step_start
+                
+                # Track performance
+                if self.performance_stats:
+                    self.performance_stats.track_request(
+                        request_type='text',
+                        model_name=model_name,
+                        processing_time=step_time
+                    )
+                
                 if success and state.get('pipeline_status', {}).get('steps', {}).get('text_agent_processing', {}).get('data'):
                     text_processing = state['pipeline_status']['steps']['text_agent_processing']['data']
-                    self.logger.info("Text agent processing completed")
+                    self.logger.info(f"Text agent processing completed in {step_time:.2f}s")
                 else:
                     self.logger.warning("Text agent processing failed or returned no data")
             
@@ -193,13 +247,30 @@ class SingleImageProcessor:
                 needs_translation = text_processing.get('needTranslation', False)
                 
                 if needs_translation:
+                    step_start = time.perf_counter()
                     translator_agent = self._get_translator_agent()
+                    
+                    # Get model name (use text_model if translator model not specified)
+                    translator_model = getattr(translator_agent, 'model', None)
+                    if not translator_model:
+                        translator_model = text_model or self.config_manager.config.get('ollama', {}).get('models', {}).get('text_model', 'unknown')
+                    
                     success, state = self.step_processor.process_translation_step(
                         image_path, state, translator_agent, skip_if_completed=False
                     )
+                    step_time = time.perf_counter() - step_start
+                    
+                    # Track performance
+                    if self.performance_stats:
+                        self.performance_stats.track_request(
+                            request_type='translation',
+                            model_name=translator_model,
+                            processing_time=step_time
+                        )
+                    
                     if success and state.get('pipeline_status', {}).get('steps', {}).get('translation', {}).get('data'):
                         translation_result = state['pipeline_status']['steps']['translation']['data']
-                        self.logger.info("Translation completed")
+                        self.logger.info(f"Translation completed in {step_time:.2f}s")
                     else:
                         self.logger.warning("Translation failed or returned no data")
                 else:

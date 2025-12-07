@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .config_manager import ConfigManager
 from .pipeline.step_processor.single_image_processor import SingleImageProcessor
+from .performance import PerformanceStatsManager
 
 
 # Get logger - logging will be configured by ConfigManager
@@ -75,6 +76,7 @@ app = FastAPI(
 # Global state
 config_manager: Optional[ConfigManager] = None
 image_processor: Optional[SingleImageProcessor] = None
+performance_stats: Optional[PerformanceStatsManager] = None
 
 
 def initialize_services(config_path: str = "config.yml"):
@@ -83,14 +85,17 @@ def initialize_services(config_path: str = "config.yml"):
     Args:
         config_path: Path to configuration file
     """
-    global config_manager, image_processor
+    global config_manager, image_processor, performance_stats
     
     try:
         logger.info(f"Loading configuration from: {config_path}")
         config_manager = ConfigManager(config_path)
         
+        logger.info("Initializing performance statistics manager")
+        performance_stats = PerformanceStatsManager(config_manager.config)
+        
         logger.info("Initializing image processor")
-        image_processor = SingleImageProcessor(config_manager)
+        image_processor = SingleImageProcessor(config_manager, performance_stats)
         
         logger.info("Services initialized successfully")
         
@@ -112,11 +117,25 @@ async def startup_event():
                 config_path = str(parent_config)
         
         initialize_services(config_path)
+        
+        # Start periodic performance logging if enabled
+        if performance_stats:
+            performance_stats.start_periodic_logging()
+        
         logger.info("FastAPI application started successfully")
         
     except Exception as e:
         logger.error(f"Startup failed: {e}", exc_info=True)
         # Don't fail startup, but services won't be available
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("Shutting down FastAPI application")
+    
+    if performance_stats:
+        performance_stats.shutdown()
 
 
 @app.get("/", response_model=HealthResponse)
@@ -322,6 +341,63 @@ async def get_available_models():
         ],
         "note": "Models must be installed in Ollama. Run 'ollama pull <model>' to install."
     }
+
+
+@app.get("/performance")
+async def get_performance_stats():
+    """Get comprehensive performance statistics for all request types.
+    
+    Returns detailed performance metrics including:
+    - Total uptime and request count
+    - Statistics per request type (image, text, translation, ocr)
+    - Model usage breakdown with request counts
+    - Timing statistics (avg, min, max) for each model
+    - Individual request timing arrays
+    """
+    if performance_stats is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Performance tracking not initialized"
+        )
+    
+    return performance_stats.get_stats()
+
+
+@app.get("/performance/summary")
+async def get_performance_summary():
+    """Get a summary of performance statistics.
+    
+    Returns a condensed view of performance metrics without detailed timing arrays.
+    """
+    if performance_stats is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Performance tracking not initialized"
+        )
+    
+    return performance_stats.get_summary()
+
+
+@app.get("/performance/{request_type}")
+async def get_performance_by_type(request_type: str):
+    """Get performance statistics for a specific request type.
+    
+    Args:
+        request_type: Type of request (e.g., 'image', 'text', 'translation', 'ocr')
+        
+    Returns detailed performance metrics for the specified request type including:
+    - Total requests for this type
+    - All models used for this request type
+    - Per-model statistics (count, avg/min/max time)
+    - Individual request timing arrays
+    """
+    if performance_stats is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Performance tracking not initialized"
+        )
+    
+    return performance_stats.get_stats(request_type=request_type)
 
 
 # Error handlers

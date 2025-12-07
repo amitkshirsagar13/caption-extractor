@@ -8,6 +8,12 @@ logging:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/caption_extractor.log"
 
+# Performance Logging Configuration
+performance_logging:
+  enabled: true  # Enable periodic performance statistics logging
+  log_location: "logs/performance"  # Directory to store performance logs
+  periodicity_seconds: 600  # Log interval in seconds (600 = 10 minutes)
+
 # API Configuration
 api:
   port: 8000  # Port for FastAPI server

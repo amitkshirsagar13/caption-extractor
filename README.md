@@ -5,7 +5,8 @@ Advanced image processing pipeline with OCR text extraction, AI-powered image an
 ## 🎯 Key Features
 
 - **REST API**: FastAPI-based REST API with Swagger UI for easy integration
-- **Pipeline-Based Processing**: Step-by-step processing with YAML state management
+- **Performance Tracking**: Comprehensive statistics for monitoring and optimization
+- **Pipeline-Based Processing**: Step by-step processing with YAML state management
 - **No Context Switching**: Each image processes through all steps sequentially
 - **Resume Capability**: Automatically resume incomplete processing from the failing step
 - **State Persistence**: Complete YAML audit trail of all processing steps
@@ -87,9 +88,11 @@ print(response.json())
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
+- **Performance Stats**: http://localhost:8000/performance
 - **Quick Reference**: [API_QUICK_REFERENCE.md](API_QUICK_REFERENCE.md)
 - **Full Guide**: [docs/API_README.md](docs/API_README.md)
 - **Integration Guide**: [docs/FASTAPI_INTEGRATION.md](docs/FASTAPI_INTEGRATION.md)
+- **Performance Tracking**: [docs/PERFORMANCE_TRACKING.md](docs/PERFORMANCE_TRACKING.md)
 
 ## Configuration
 
@@ -131,6 +134,12 @@ model:
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR, CRITICAL
   file: "logs/caption_extractor.log"
+
+# Performance Logging Configuration
+performance_logging:
+  enabled: true              # Enable periodic performance statistics logging
+  log_location: "logs/performance"  # Directory to store performance logs
+  periodicity_seconds: 600   # Log interval in seconds (600 = 10 minutes)
 ```
 
 ## Project Structure
