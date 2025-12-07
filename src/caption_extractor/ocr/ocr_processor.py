@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict, Any
 import cv2
 import numpy as np
-from paddleocr import PaddleOCR
 from PIL import Image, ImageEnhance
 import os
 
@@ -38,6 +37,7 @@ class OCRProcessor:
         os.environ['PPOCR_DEBUG'] = '1'
         
         # Set custom cache directory if configured
+        # IMPORTANT: Must be set BEFORE importing PaddleOCR
         cache_dir = self.ocr_config.get('model_cache_dir')
         if cache_dir:
             cache_dir = os.path.abspath(os.path.expanduser(cache_dir))
@@ -47,22 +47,45 @@ class OCRProcessor:
             cache_dir = os.path.expanduser('~/.paddleocr')
             logger.info(f"Using default PaddleOCR cache directory: {cache_dir}")
         
+        # Import PaddleOCR AFTER setting environment variables
+        from paddleocr import PaddleOCR
+        
         logger.info("Initializing PaddleOCR...")
         logger.info(f"OCR Configuration: {self.ocr_config}")
         
         # Basic settings
+        lang = self.ocr_config.get('lang', 'en')
         ocr_params = {
-            'lang': self.ocr_config.get('lang', 'en'),
+            'lang': lang,
             'use_angle_cls': self.ocr_config.get('use_angle_cls', True),
             # 'use_gpu': False,  # Force CPU to avoid GPU-related crashes
             # 'show_log': False,  # Reduce verbosity
         }
         
-        # Model directory (if specified)
+        # Explicitly set model directories to use the configured cache location
+        # This ensures PaddleOCR uses our custom location instead of the default
+        if cache_dir:
+            # Create the directory structure if it doesn't exist
+            os.makedirs(cache_dir, exist_ok=True)
+            
+            # Set explicit paths for each model type
+            det_model_dir = os.path.join(cache_dir, 'whl', 'det', lang, f'{lang}_PP-OCRv4_det_infer')
+            rec_model_dir = os.path.join(cache_dir, 'whl', 'rec', lang, f'{lang}_PP-OCRv4_rec_infer')
+            cls_model_dir = os.path.join(cache_dir, 'whl', 'cls', 'ch_ppocr_mobile_v2.0_cls_infer')
+            
+            ocr_params['det_model_dir'] = det_model_dir
+            ocr_params['rec_model_dir'] = rec_model_dir
+            ocr_params['cls_model_dir'] = cls_model_dir
+            
+            logger.info(f"Detection model directory: {det_model_dir}")
+            logger.info(f"Recognition model directory: {rec_model_dir}")
+            logger.info(f"Classification model directory: {cls_model_dir}")
+        
+        # Model directory (legacy config, if specified)
         model_dir = self.ocr_config.get('model_dir')
         if model_dir:
             ocr_params['model_dir'] = model_dir
-            logger.info(f"Using model directory: {model_dir}")
+            logger.info(f"Using legacy model directory: {model_dir}")
         
         # Detection parameters
         det_config = self.ocr_config.get('detection', {})
