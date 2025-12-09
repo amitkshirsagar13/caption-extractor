@@ -217,9 +217,9 @@ async def process_image(
             )
 
             if vision_model == "string": 
-                vision_model = "gemma3"
+                vision_model = "gemma3:latest"
             if text_model == "string":
-                text_model = "mistral"
+                text_model = "mistral:latest"
         
         # Process the image
         result = image_processor.process_image(
