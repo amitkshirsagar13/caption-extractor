@@ -114,10 +114,10 @@ ollama:
 model:
   # Model storage location
   model_dir: "models"
-  # OCR detection model (PP-OCRv5)
-  det_model_name: "ch_PP-OCRv4_det"
-  # OCR recognition model (PP-OCRv5) 
-  rec_model_name: "ch_PP-OCRv4_rec"
+  # OCR detection model (PP-OCRv5) devanagari
+  det_model_name: "ch_PP-OCRv5_det"
+  # OCR recognition model (PP-OCRv5) devanagari
+  rec_model_name: "ch_PP-OCRv5_rec"
   # Use angle classification
   use_angle_cls: true
   # Language support
@@ -172,7 +172,7 @@ performance:
 # OCR Engine Configuration
 ocr:
   # Basic settings
-  lang: "en"  # Language: en, ch, fr, german, korean, japan, etc.
+  lang: "en"  # Language code (en, hi, mr, te, ta, kn, ml, etc.)
   use_gpu: false  # Enable GPU acceleration (requires paddlepaddle-gpu)
   use_angle_cls: true  # Enable text angle classification (improves accuracy for rotated text)
   show_log: false  # Show detailed PaddleOCR logs

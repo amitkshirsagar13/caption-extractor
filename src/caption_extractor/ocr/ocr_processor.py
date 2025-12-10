@@ -69,8 +69,8 @@ class OCRProcessor:
             os.makedirs(cache_dir, exist_ok=True)
             
             # Set explicit paths for each model type
-            det_model_dir = os.path.join(cache_dir, 'whl', 'det', lang, f'{lang}_PP-OCRv4_det_infer')
-            rec_model_dir = os.path.join(cache_dir, 'whl', 'rec', lang, f'{lang}_PP-OCRv4_rec_infer')
+            det_model_dir = os.path.join(cache_dir, 'whl', 'det', lang, f'{lang}_PP-OCRv5_det_infer')
+            rec_model_dir = os.path.join(cache_dir, 'whl', 'rec', lang, f'{lang}_PP-OCRv5_rec_infer')
             cls_model_dir = os.path.join(cache_dir, 'whl', 'cls', 'ch_ppocr_mobile_v2.0_cls_infer')
             
             ocr_params['det_model_dir'] = det_model_dir
@@ -111,11 +111,11 @@ class OCRProcessor:
         logger.info("PaddleOCR will now attempt to download models if not cached.")
         logger.info("Model download URLs for English (en) language:")
         logger.info("-" * 80)
-        logger.info("Detection Model (PP-OCRv4):")
-        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_det_infer.tar")
+        logger.info("Detection Model (PP-OCRv5):")
+        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
         logger.info("")
-        logger.info("Recognition Model (PP-OCRv4):")
-        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_rec_infer.tar")
+        logger.info("Recognition Model (PP-OCRv5):")
+        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_rec_infer.tar")
         logger.info("")
         logger.info("Angle Classification Model:")
         logger.info("  URL: https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar")
@@ -143,7 +143,7 @@ class OCRProcessor:
             logger.error("TROUBLESHOOTING STEPS:")
             logger.error("1. Check if you can access these URLs in your browser:")
             logger.error("   - https://paddleocr.bj.bcebos.com/")
-            logger.error("   - https://paddleocr.bj.bcebos.com/PP-OCRv4/english/en_PP-OCRv4_det_infer.tar")
+            logger.error("   - https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
             logger.error("")
             logger.error("2. If URLs are blocked, download models manually:")
             logger.error("   python download_models.py")
