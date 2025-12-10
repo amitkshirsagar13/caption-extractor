@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body style="padding: 20px;">
+
+    <div class="card">
+        <h3>Result</h3>
+        <div class="result-container" style="height: 150px; overflow: auto;">
+            <button id="copy-btn" type="button" title="Copy to clipboard">Copy</button>
+            <pre><code id="result-area" class="language-json">
+// Fake long content to test scrolling
+{
+  "test": "data",
+  "more": "content",
+  "lines": [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+  ]
+}
+            </code></pre>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h2>Performance Summary</h2>
+        <div id="perf-content">
+            <table id="perf-table">
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <h3 style="margin-top: 20px; font-size: 1rem;">Model Breakdown</h3>
+        <table id="model-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Calls</th>
+                    <th>Avg Time (s)</th>
+                </tr>
+            </thead>
+            <tbody id="model-body">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Mock Data
+        const data = {
+            "uptime_seconds": 714.42,
+            "start_time": "2025-12-09T18:57:35.080791",
+            "request_types": [
+                {
+                    "request_type": "ocr",
+                    "total_requests": 2,
+                    "models_used": 1,
+                    "model_breakdown": [
+                        {
+                            "model": "paddleocr",
+                            "count": 2,
+                            "avg_time": 2.204,
+                            "min_time": 1.761,
+                            "max_time": 2.647
+                        }
+                    ]
+                },
+                {
+                    "request_type": "image",
+                    "total_requests": 2,
+                    "models_used": 1,
+                    "model_breakdown": [
+                        {
+                            "model": "gemma3:latest",
+                            "count": 2,
+                            "avg_time": 34.484,
+                            "min_time": 32.038,
+                            "max_time": 36.931
+                        }
+                    ]
+                },
+                {
+                    "request_type": "text",
+                    "total_requests": 2,
+                    "models_used": 2,
+                    "model_breakdown": [
+                        {
+                            "model": "gemma3:latest",
+                            "count": 1,
+                            "avg_time": 23.258,
+                            "min_time": 23.258,
+                            "max_time": 23.258
+                        },
+                        {
+                            "model": "mistral:latest",
+                            "count": 1,
+                            "avg_time": 43.41,
+                            "min_time": 43.41,
+                            "max_time": 43.41
+                        }
+                    ]
+                },
+                {
+                    "request_type": "translation",
+                    "total_requests": 2,
+                    "models_used": 1,
+                    "model_breakdown": [
+                        {
+                            "model": "gemma3:latest",
+                            "count": 2,
+                            "avg_time": 7.839,
+                            "min_time": 5.192,
+                            "max_time": 10.487
+                        }
+                    ]
+                }
+            ],
+            "total_requests": 8
+        };
+
+        function formatUptime(seconds) {
+            if (!seconds) return '0s';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return `${h}h ${m}m ${s}s`;
+        }
+
+        // Paste the new function here to test it exactly as written
+        function renderPerformance(data) {
+            const perfBody = document.querySelector('#perf-table tbody');
+            const modelBody = document.querySelector('#model-table tbody');
+
+            // Render General Stats
+            let generalHtml = '';
+            if (data.total_requests !== undefined) {
+                generalHtml += `<tr><td>Total Requests</td><td>${data.total_requests}</td></tr>`;
+                generalHtml += `<tr><td>Server Uptime</td><td>${formatUptime(data.uptime_seconds)}</td></tr>`;
+            } else {
+                generalHtml = '<tr><td colspan="2">No data available</td></tr>';
+            }
+            perfBody.innerHTML = generalHtml;
+
+            // Render Model Breakdown
+            if (data.request_types && Array.isArray(data.request_types)) {
+                let modelHtml = '';
+
+                const modelHead = document.querySelector('#model-table thead tr');
+                if (modelHead) {
+                    modelHead.innerHTML = `
+                        <th>Request Type</th>
+                        <th>Model</th>
+                        <th>Calls</th>
+                        <th>Avg (s)</th>
+                        <th>Min (s)</th>
+                        <th>Max (s)</th>
+                    `;
+                }
+
+                data.request_types.forEach(rt => {
+                    if (rt.model_breakdown && Array.isArray(rt.model_breakdown)) {
+                        rt.model_breakdown.forEach(m => {
+                            modelHtml += `
+                                <tr>
+                                    <td>${rt.request_type}</td>
+                                    <td>${m.model}</td>
+                                    <td>${m.count}</td>
+                                    <td>${m.avg_time.toFixed(3)}</td>
+                                    <td>${m.min_time.toFixed(3)}</td>
+                                    <td>${m.max_time.toFixed(3)}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                });
+                modelBody.innerHTML = modelHtml || '<tr><td colspan="6">No model usage yet</td></tr>';
+            } else {
+                modelBody.innerHTML = '<tr><td colspan="6">No detailed model stats available</td></tr>';
+            }
+        }
+
+        renderPerformance(data);
+    </script>
+</body>
+
+</html>

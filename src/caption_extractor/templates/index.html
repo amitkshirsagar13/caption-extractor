@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caption Extractor Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- PrismJS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-twilight.min.css" rel="stylesheet" />
+</head>
+
+<body>
+    <header>
+        <h1>Caption Extractor Dashboard</h1>
+        <div id="status-bar">
+            <span class="status-indicator status-active"></span> System Online
+        </div>
+    </header>
+
+    <main>
+        <!-- Process Image Section -->
+        <div class="card" style="flex: 65;">
+            <h2>Process Image Tester</h2>
+            <form id="process-form">
+                <div class="form-group">
+                    <label for="image-file">Image File:</label>
+                    <input type="file" id="image-file" name="file" accept="image/*" required>
+                </div>
+
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="enable_ocr" checked> Enable OCR
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="enable_image_agent" checked> Image Agent
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="enable_text_agent" checked> Text Agent
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="enable_translation" checked> Translation
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="vision-model">Vision Model:</label>
+                    <input type="text" id="vision-model" name="vision_model" placeholder="e.g., gemma3:latest">
+                </div>
+
+                <div class="form-group">
+                    <label for="text-model">Text Model:</label>
+                    <input type="text" id="text-model" name="text_model" placeholder="e.g., mistral:latest">
+                </div>
+
+                <button type="submit" id="process-btn">AI Image Extract</button>
+            </form>
+
+            <!-- Image Preview -->
+            <div id="preview-container" style="margin-top: 15px; display: none;">
+                <h3 style="font-size: 1rem; margin-bottom: 10px;">Image Preview</h3>
+                <img id="image-preview" src="" alt="Image Preview"
+                    style="max-width: 100%; border: 1px solid var(--vscode-border); border-radius: 3px;">
+            </div>
+
+            <div id="loader" class="spinner" style="margin-top: 20px;"></div>
+
+
+            <h3>Result</h3>
+            <div class="result-container">
+                <button id="copy-btn" type="button" title="Copy to clipboard">Copy</button>
+                <pre><code id="result-area" class="language-json">Waiting for input...</code></pre>
+            </div>
+        </div>
+
+        <!-- Performance Summary Section -->
+        <div class="card" style="flex: 35;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--vscode-border); padding-bottom: 10px; margin-bottom: 15px;">
+                <h2 style="border: none; margin: 0; padding: 0;">Performance Summary</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="force-refresh-btn" type="button"
+                        style="width: auto; padding: 4px 8px; font-size: 0.8rem;">Refresh Now</button>
+                    <span id="refresh-timer" style="font-size: 0.8rem; color: var(--vscode-fg); opacity: 0.7;">Refreshes
+                        in 60s</span>
+                </div>
+            </div>
+
+            <div id="perf-content">
+                <table id="perf-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="2">Loading stats...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top: 20px; font-size: 1rem;">Model Breakdown</h3>
+            <table id="model-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Calls</th>
+                        <th>Avg Time (s)</th>
+                    </tr>
+                </thead>
+                <tbody id="model-body">
+                    <tr>
+                        <td colspan="3">Loading data...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer>
+        Caption Extractor v1.0.0 | &copy; 2024 DevOpsNextGenX
+    </footer>
+
+    <!-- PrismJS Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-json.min.js"></script>
+
+    <script>
+        // Process Form Logic
+        document.getElementById('process-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('process-btn');
+            const loader = document.getElementById('loader');
+            const resultArea = document.getElementById('result-area');
+            const formData = new FormData(this);
+
+            // Handle optional text inputs
+            if (!formData.get('vision_model')) formData.delete('vision_model');
+            if (!formData.get('text_model')) formData.delete('text_model');
+
+            // UI State: Loading
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            loader.style.display = 'block';
+            resultArea.textContent = 'Processing...';
+            // Reset highlighting during loading
+            resultArea.removeAttribute('data-highlighted');
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Processing failed');
+                }
+
+                const data = await response.json();
+                resultArea.textContent = JSON.stringify(data, null, 2);
+                // Trigger Prism highlight
+                Prism.highlightElement(resultArea);
+            } catch (error) {
+                resultArea.textContent = 'Error: ' + error.message;
+            } finally {
+                // UI State: Reset
+                btn.disabled = false;
+                btn.textContent = 'AI Image Extract';
+                loader.style.display = 'none';
+            }
+        });
+
+        // Image Preview Logic
+        document.getElementById('image-file').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            const previewContainer = document.getElementById('preview-container');
+            const previewImage = document.getElementById('image-preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    previewImage.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewContainer.style.display = 'none';
+                previewImage.src = '';
+            }
+        });
+
+        // Copy to Clipboard
+        document.getElementById('copy-btn').addEventListener('click', function () {
+            const resultText = document.getElementById('result-area').textContent;
+            navigator.clipboard.writeText(resultText).then(() => {
+                const originalText = this.textContent;
+                this.textContent = 'Copied!';
+                setTimeout(() => {
+                    this.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        });
+
+        // Performance Summary Logic
+        let timeLeft = 60;
+        const timerDisplay = document.getElementById('refresh-timer');
+
+        async function fetchPerformance() {
+            try {
+                const response = await fetch('/performance/summary');
+                if (!response.ok) return;
+
+                const data = await response.json();
+                renderPerformance(data);
+            } catch (e) {
+                console.error("Failed to fetch performance stats", e);
+            }
+        }
+
+        // Force Refresh Button
+        document.getElementById('force-refresh-btn').addEventListener('click', function () {
+            fetchPerformance();
+            timeLeft = 60; // Reset timer on manual refresh
+            timerDisplay.textContent = `Refreshes in ${timeLeft}s`;
+        });
+
+        function renderPerformance(data) {
+            const perfBody = document.querySelector('#perf-table tbody');
+            const modelBody = document.querySelector('#model-table tbody');
+
+            // Render General Stats
+            let generalHtml = '';
+            if (data.total_requests !== undefined) {
+                generalHtml += `<tr><td>Total Requests</td><td>${data.total_requests}</td></tr>`;
+                generalHtml += `<tr><td>Server Uptime</td><td>${formatUptime(data.uptime_seconds)}</td></tr>`;
+            } else {
+                generalHtml = '<tr><td colspan="2">No data available</td></tr>';
+            }
+            perfBody.innerHTML = generalHtml;
+
+            // Render Model Breakdown
+            // Expected nested structure: data.request_types -> [ { request_type, total_requests, model_breakdown: [ { model, count, avg_time, min_time, max_time } ] } ]
+            if (data.request_types && Array.isArray(data.request_types)) {
+                let modelHtml = '';
+
+                // We want to flatten this slightly for the table:
+                // Request Type | Model | Count | Avg (s) | Min (s) | Max (s)
+
+                // Update table header first to match new columns
+                const modelHead = document.querySelector('#model-table thead tr');
+                if (modelHead) {
+                    modelHead.innerHTML = `
+                        <th>Request Type</th>
+                        <th>Model</th>
+                        <th>Calls</th>
+                        <th>Avg (s)</th>
+                        <th>Min (s)</th>
+                        <th>Max (s)</th>
+                    `;
+                }
+
+                data.request_types.forEach(rt => {
+                    if (rt.model_breakdown && Array.isArray(rt.model_breakdown)) {
+                        rt.model_breakdown.forEach(m => {
+                            modelHtml += `
+                                <tr>
+                                    <td>${rt.request_type}</td>
+                                    <td>${m.model}</td>
+                                    <td>${m.count}</td>
+                                    <td>${m.avg_time.toFixed(3)}</td>
+                                    <td>${m.min_time.toFixed(3)}</td>
+                                    <td>${m.max_time.toFixed(3)}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                });
+                modelBody.innerHTML = modelHtml || '<tr><td colspan="6">No model usage yet</td></tr>';
+            } else {
+                modelBody.innerHTML = '<tr><td colspan="6">No detailed model stats available</td></tr>';
+            }
+        }
+
+        function formatUptime(seconds) {
+            if (!seconds) return '0s';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return `${h}h ${m}m ${s}s`;
+        }
+
+        // Auto-refresh loop
+        setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                fetchPerformance();
+                timeLeft = 60;
+            }
+            timerDisplay.textContent = `Refreshes in ${timeLeft}s`;
+        }, 1000);
+
+        // Initial Load
+        fetchPerformance();
+    </script>
+</body>
+
+</html>

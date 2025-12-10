@@ -7,8 +7,10 @@ import uuid
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from .config_manager import ConfigManager
@@ -78,6 +80,12 @@ config_manager: Optional[ConfigManager] = None
 image_processor: Optional[SingleImageProcessor] = None
 performance_stats: Optional[PerformanceStatsManager] = None
 
+# Templates configuration
+def get_project_root():
+    return Path(__file__).parent
+
+templates = Jinja2Templates(directory=str(get_project_root() / "templates"))
+
 
 def initialize_services(config_path: str = "config.yml"):
     """Initialize configuration and services.
@@ -108,6 +116,10 @@ def initialize_services(config_path: str = "config.yml"):
 async def startup_event():
     """Initialize services on startup."""
     try:
+        # Mount static files
+        static_path = get_project_root() / "static"
+        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
         # Look for config.yml in current directory or parent directories
         config_path = "config.yml"
         if not os.path.exists(config_path):
@@ -138,13 +150,17 @@ async def shutdown_event():
         performance_stats.shutdown()
 
 
-@app.get("/", response_model=HealthResponse)
-async def root():
-    """Root endpoint with API information."""
-    return HealthResponse(
-        status="running",
-        version="1.0.0",
-        config_loaded=config_manager is not None
+@app.get("/", response_class=JSONResponse)
+async def root(request: Request):
+    """Serve the home page."""
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "status": "running",
+            "version": "1.0.0",
+            "config_loaded": config_manager is not None
+        }
     )
 
 
