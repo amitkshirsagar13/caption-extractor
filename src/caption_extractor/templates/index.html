@@ -254,10 +254,10 @@
                 // Request Type | Model | Count | Avg (s) | Min (s) | Max (s)
 
                 // Update table header first to match new columns
+                // Update table header to remove Request Type column
                 const modelHead = document.querySelector('#model-table thead tr');
                 if (modelHead) {
                     modelHead.innerHTML = `
-                        <th>Request Type</th>
                         <th>Model</th>
                         <th>Calls</th>
                         <th>Avg (s)</th>
@@ -267,12 +267,24 @@
                 }
 
                 data.request_types.forEach(rt => {
+                    // Group Header
+                    const typeClass = `type-${rt.request_type.toLowerCase()}`;
+                    modelHtml += `
+                        <tr class="group-header ${typeClass}">
+                            <td colspan="5">
+                                ${rt.request_type.toUpperCase()} 
+                                <span style="font-weight: normal; font-size: 0.8rem; color: var(--vscode-fg); margin-left: 10px;">
+                                    (${rt.total_requests} requests)
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+
                     if (rt.model_breakdown && Array.isArray(rt.model_breakdown)) {
                         rt.model_breakdown.forEach(m => {
                             modelHtml += `
-                                <tr>
-                                    <td>${rt.request_type}</td>
-                                    <td>${m.model}</td>
+                                <tr class="sub-row">
+                                    <td class="${typeClass}" style="padding-left: 20px;">${m.model}</td>
                                     <td>${m.count}</td>
                                     <td>${m.avg_time.toFixed(3)}</td>
                                     <td>${m.min_time.toFixed(3)}</td>
@@ -282,9 +294,9 @@
                         });
                     }
                 });
-                modelBody.innerHTML = modelHtml || '<tr><td colspan="6">No model usage yet</td></tr>';
+                modelBody.innerHTML = modelHtml || '<tr><td colspan="5">No model usage yet</td></tr>';
             } else {
-                modelBody.innerHTML = '<tr><td colspan="6">No detailed model stats available</td></tr>';
+                modelBody.innerHTML = '<tr><td colspan="5">No detailed model stats available</td></tr>';
             }
         }
 

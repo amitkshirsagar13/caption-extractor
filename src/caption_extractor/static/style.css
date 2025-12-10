@@ -256,3 +256,36 @@ tr:hover {
     width: 100%;
     flex: 100%;
 }
+
+/* Grouped Table Styles */
+.group-header {
+    background-color: var(--vscode-header);
+    font-weight: bold;
+    color: var(--vscode-accent);
+}
+
+.group-header td {
+    padding-top: 15px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid var(--vscode-border);
+}
+
+.type-ocr {
+    border-left: 4px solid #4ec9b0;
+}
+
+.type-image {
+    border-left: 4px solid #ce9178;
+}
+
+.type-text {
+    border-left: 4px solid #569cd6;
+}
+
+.type-translation {
+    border-left: 4px solid #dcdcaa;
+}
+
+.sub-row td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
