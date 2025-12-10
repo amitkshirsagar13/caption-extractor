@@ -189,9 +189,18 @@ class StepProcessor:
                         f"Resize failed, using original: {e}"
                     )
 
+
             # Use resized or original image
             image_to_send = resized_temp_path or image_path
-            vl_model_data = image_agent.analyze_image(image_to_send)
+            
+            # Extract OCR text if available
+            ocr_text = None
+            if state.get('results', {}).get('ocr_data'):
+                ocr_text = state['results']['ocr_data'].get('full_text')
+                if ocr_text:
+                    self.logger.info(f"Adding OCR text context ({len(ocr_text)} chars) to image analysis prompt")
+            
+            vl_model_data = image_agent.analyze_image(image_to_send, ocr_text)
 
             if not vl_model_data:
                 raise Exception("Image agent returned no results")

@@ -40,11 +40,12 @@ class ImageAgent:
                 f"Pull the model using: ollama pull {self.vision_model}"
             )
     
-    def analyze_image(self, image_path: str) -> Optional[Dict[str, Any]]:
+    def analyze_image(self, image_path: str, ocr_text: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Analyze image to extract description, scene, text, and story.
         
         Args:
             image_path: Path to the image file
+            ocr_text: Optional text extracted from the image via OCR
             
         Returns:
             Dictionary containing analysis results with model and timing info, or None if failed
@@ -53,11 +54,22 @@ class ImageAgent:
             self.logger.info(f"Analyzing image with vision model: {image_path}")
             
             # Prepare prompt
-            prompt = """Analyze this image and provide a detailed analysis with the following sections:
+            ocr_section = ""
+            if ocr_text:
+                ocr_section = f"""
+Here is the OCR text extracted:  
+<ocr>
+  {ocr_text}
+</ocr>
+"""
+
+            prompt = f"""Analyze this image and provide a detailed analysis with the following sections:
 1. **Description**: Provide a comprehensive description of what you see in the image (objects, people, colors, composition, etc.)
-2. **Scene**: Identify the type of scene or setting (e.g., indoor/outdoor, document/photo, nature/urban, etc.)
+2. **Scene**: Identify the type of scene or setting (e.g., indoor/outdoor, document, nature/urban, etc.)
 3. **Text**: List any visible text in the image, make sure you do not translate or change or provide any other commentary. Only provide text word 2 word exact as extracted. If there's no text, state "No visible text"
 4. **Story**: Create a brief narrative or context about what might be happening in the image or its purpose
+
+{ocr_section}
 
 Please structure your response with clear section headers."""
             
