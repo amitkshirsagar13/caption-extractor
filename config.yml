@@ -115,13 +115,13 @@ model:
   # Model storage location
   model_dir: "models"
   # OCR detection model (PP-OCRv5) devanagari
-  det_model_name: "ch_PP-OCRv5_det"
+  det_model_name: "devanagari_PP-OCRv5_det"
   # OCR recognition model (PP-OCRv5) devanagari
-  rec_model_name: "ch_PP-OCRv5_rec"
+  rec_model_name: "devanagari_PP-OCRv5_rec"
   # Use angle classification
   use_angle_cls: true
   # Language support
-  lang: "en"
+  lang: "devanagari"
   # Use GPU if available (disabled for stability)
   use_gpu: false
 

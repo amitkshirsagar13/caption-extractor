@@ -54,7 +54,7 @@ class OCRProcessor:
         logger.info(f"OCR Configuration: {self.ocr_config}")
         
         # Basic settings
-        lang = self.ocr_config.get('lang', 'en')
+        lang = self.ocr_config.get('lang', 'devanagari')
         ocr_params = {
             'lang': lang,
             'use_angle_cls': self.ocr_config.get('use_angle_cls', True),
