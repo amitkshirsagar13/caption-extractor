@@ -56,7 +56,7 @@ pipeline:
 # Ollama Configuration
 ollama:
   # Ollama server connection
-  host: "http://localhost:11434"  # Ollama API endpoint
+  host: "http://host.docker.internal:11434"  # Ollama API endpoint
   timeout: 120  # Request timeout in seconds
   
   # Model configuration

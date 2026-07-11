@@ -1,329 +1,840 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Caption Extractor Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css" />
     <!-- PrismJS for Syntax Highlighting -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-twilight.min.css" rel="stylesheet" />
-</head>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-twilight.min.css"
+      rel="stylesheet"
+    />
+  </head>
 
-<body>
-    <header>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="/static/imgs/caption-extractor.png" alt="Logo" style="height: 32px; width: auto;">
-            <h1>Caption Extractor Dashboard</h1>
-        </div>
-        <div id="status-bar">
-            <span class="status-indicator status-active"></span> System Online
-        </div>
+  <body>
+    <header
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 20px;
+        background-color: #121216;
+        border-bottom: 1px solid #333;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 10px">
+        <h1
+          style="
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          Pixtor
+          <span
+            style="
+              background-color: #0066ff;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 0.8rem;
+              font-weight: normal;
+            "
+            >Image AI</span
+          >
+        </h1>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div
+        class="tabs-container"
+        style="
+          background: transparent;
+          border: none;
+          padding: 0;
+          display: flex;
+          gap: 15px;
+        "
+      >
+        <button
+          class="tab-btn"
+          data-target="tab-tester"
+          style="
+            font-size: 0.9rem;
+            padding: 5px;
+          "
+        >
+          Tester
+        </button>
+        <button
+          class="tab-btn active"
+          data-target="tab-folders"
+          style="
+            font-size: 0.9rem;
+            padding: 5px;
+          "
+        >
+          Browse
+        </button>
+        <button
+          class="tab-btn"
+          data-target="tab-jobs"
+          style="
+            font-size: 0.9rem;
+            padding: 5px;
+          "
+        >
+          Jobs
+        </button>
+        <button
+          class="tab-btn"
+          data-target="tab-api"
+          style="
+            font-size: 0.9rem;
+            padding: 5px;
+          "
+        >
+          API Stats
+        </button>
+      </div>
     </header>
 
     <main>
-        <!-- Process Image Section -->
-        <div class="card" style="flex: 65;">
-            <h2>Process Image Tester</h2>
-            <form id="process-form">
-                <div class="form-group">
-                    <label for="image-file">Image File:</label>
-                    <input type="file" id="image-file" name="file" accept="image/*" required>
-                </div>
-
-                <div class="checkbox-group">
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="enable_ocr" checked> Enable OCR
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="enable_image_agent" checked> Image Agent
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="enable_text_agent" checked> Text Agent
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" name="enable_translation" checked> Translation
-                    </label>
-                </div>
-
-                <div class="form-group">
-                    <label for="vision-model">Vision Model:</label>
-                    <input type="text" id="vision-model" name="vision_model" placeholder="e.g., gemma3:latest">
-                </div>
-
-                <div class="form-group">
-                    <label for="text-model">Text Model:</label>
-                    <input type="text" id="text-model" name="text_model" placeholder="e.g., mistral:latest">
-                </div>
-
-                <button type="submit" id="process-btn">AI Image Extract</button>
-            </form>
-
-            <!-- Image Preview -->
-            <div id="preview-container" style="margin-top: 15px; display: none;">
-                <h3 style="font-size: 1rem; margin-bottom: 10px;">Image Preview</h3>
-                <img id="image-preview" src="" alt="Image Preview"
-                    style="max-width: 100%; border: 1px solid var(--vscode-border); border-radius: 3px;">
+      <!-- Tab: Tester -->
+      <div
+        id="tab-tester"
+        class="tab-content active"
+        style="display: flex; width: 100%; gap: 20px"
+      >
+        <div class="card" style="flex: 100">
+          <h2>Process Image Tester</h2>
+          <form id="process-form">
+            <div class="form-group">
+              <label for="image-file">Image File:</label>
+              <input
+                type="file"
+                id="image-file"
+                name="file"
+                accept="image/*"
+                required
+              />
             </div>
 
-            <div id="loader" class="spinner" style="margin-top: 20px;"></div>
-
-
-            <h3>Result</h3>
-            <div class="result-container">
-                <button id="copy-btn" type="button" title="Copy to clipboard">Copy</button>
-                <pre><code id="result-area" class="language-json">Waiting for input...</code></pre>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" name="enable_ocr" checked /> Enable OCR
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" name="enable_image_agent" checked />
+                Image Agent
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" name="enable_text_agent" checked /> Text
+                Agent
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" name="enable_translation" checked />
+                Translation
+              </label>
             </div>
+
+            <div class="form-group">
+              <label for="vision-model">Vision Model:</label>
+              <input
+                type="text"
+                id="vision-model"
+                name="vision_model"
+                placeholder="e.g., gemma3:latest"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="text-model">Text Model:</label>
+              <input
+                type="text"
+                id="text-model"
+                name="text_model"
+                placeholder="e.g., mistral:latest"
+              />
+            </div>
+
+            <button type="submit" id="process-btn">AI Image Extract</button>
+          </form>
+
+          <!-- Image Preview -->
+          <div id="preview-container" style="margin-top: 15px; display: none">
+            <h3 style="font-size: 1rem; margin-bottom: 10px">Image Preview</h3>
+            <img
+              id="image-preview"
+              src=""
+              alt="Image Preview"
+              style="
+                max-width: 100%;
+                border: 1px solid var(--vscode-border);
+                border-radius: 3px;
+              "
+            />
+          </div>
+
+          <div id="loader" class="spinner" style="margin-top: 20px"></div>
+
+          <h3>Result</h3>
+          <div class="result-container">
+            <button id="copy-btn" type="button" title="Copy to clipboard">
+              Copy
+            </button>
+            <pre><code id="result-area" class="language-json">Waiting for input...</code></pre>
+          </div>
         </div>
+      </div>
 
-        <!-- Performance Summary Section -->
-        <div class="card" style="flex: 35;">
+      <!-- Tab: Browse -->
+      <div
+        id="tab-folders"
+        class="tab-content"
+        style="display: none; width: 100%; gap: 20px; flex-direction: column"
+      >
+        <div
+          class="card"
+          style="flex: 100; background-color: #1e1e24; border-color: #333"
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 15px">
+              <h2 style="margin: 0; border: none; padding: 0">
+                Browse Folders
+              </h2>
+              <label
+                class="switch-container"
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-size: 0.8rem;
+                  opacity: 0.7;
+                  cursor: pointer;
+                "
+              >
+                <div
+                  style="
+                    width: 30px;
+                    height: 16px;
+                    background: #333;
+                    border-radius: 8px;
+                    position: relative;
+                  "
+                >
+                  <div
+                    style="
+                      width: 12px;
+                      height: 12px;
+                      background: #888;
+                      border-radius: 50%;
+                      position: absolute;
+                      top: 2px;
+                      left: 2px;
+                    "
+                  ></div>
+                </div>
+                Selection Mode
+              </label>
+            </div>
+          </div>
+
+          <div
+            class="toolbar"
+            style="
+              display: flex;
+              gap: 10px;
+              margin-bottom: 15px;
+              flex-wrap: wrap;
+            "
+          >
             <div
-                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--vscode-border); padding-bottom: 10px; margin-bottom: 15px;">
-                <h2 style="border: none; margin: 0; padding: 0;">Performance Summary</h2>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button id="force-refresh-btn" type="button"
-                        style="width: auto; padding: 4px 8px; font-size: 0.8rem;">Refresh Now</button>
-                    <span id="refresh-timer" style="font-size: 0.8rem; color: var(--vscode-fg); opacity: 0.7;">Refreshes
-                        in 60s</span>
-                </div>
+              style="
+                flex: 1;
+                display: flex;
+                align-items: center;
+                background-color: #121216;
+                border: 1px solid #333;
+                border-radius: 4px;
+                padding: 0 10px;
+              "
+            >
+              <span style="opacity: 0.5">🔍</span>
+              <input
+                type="text"
+                id="search-folder-input"
+                placeholder="Search folder name..."
+                style="
+                  border: none;
+                  background: transparent;
+                  flex: 1;
+                  padding: 8px;
+                  outline: none;
+                  color: #fff;
+                "
+              />
+              <span style="opacity: 0.3; font-size: 0.8rem">Ctrl+Shift+F</span>
             </div>
+            <button
+              id="new-folder-btn"
+              style="
+                width: auto;
+                background-color: #0066ff;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              "
+            >
+              <span style="font-size: 1.2rem; line-height: 1">+</span> New
+              Folder
+            </button>
+            <button
+              id="refresh-browse-btn"
+              style="
+                width: auto;
+                background-color: transparent;
+                border: 1px solid #333;
+                color: #0066ff;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              "
+            >
+              <span>↻</span> Refresh
+            </button>
 
-            <div id="perf-content">
-                <table id="perf-table">
-                    <thead>
-                        <tr>
-                            <th>Metric</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="2">Loading stats...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 0.8rem;
+                opacity: 0.7;
+              "
+            >
+              Sort:
+              <select
+                id="sort-folder-select"
+                style="
+                  width: auto;
+                  background-color: #121216;
+                  border: 1px solid #333;
+                  color: var(--vscode-fg);
+                  padding: 5px;
+                  border-radius: 3px;
+                  outline: none;
+                "
+              >
+                <option value="name">Name</option>
+              </select>
+              <select
+                id="sort-folder-order"
+                style="
+                  width: auto;
+                  background-color: #121216;
+                  border: 1px solid #333;
+                  color: var(--vscode-fg);
+                  padding: 5px;
+                  border-radius: 3px;
+                  outline: none;
+                "
+              >
+                <option value="asc">ASC</option>
+                <option value="desc">DESC</option>
+              </select>
             </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 0.8rem;
+                opacity: 0.7;
+              "
+            >
+              Size:
+              <select
+                id="size-folder-select"
+                style="
+                  width: auto;
+                  background-color: #121216;
+                  border: 1px solid #333;
+                  color: var(--vscode-fg);
+                  padding: 5px;
+                  border-radius: 3px;
+                  outline: none;
+                "
+              >
+                <option value="64px">64px</option>
+                <option value="128px" selected>128px</option>
+                <option value="256px">256px</option>
+              </select>
+            </div>
+          </div>
 
-            <h3 style="margin-top: 20px; font-size: 1rem;">Model Breakdown</h3>
-            <table id="model-table">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Calls</th>
-                        <th>Avg Time (s)</th>
-                    </tr>
-                </thead>
-                <tbody id="model-body">
-                    <tr>
-                        <td colspan="3">Loading data...</td>
-                    </tr>
-                </tbody>
-            </table>
+          <div
+            class="breadcrumb-container"
+            id="breadcrumb-container"
+            style="
+              background-color: #121216;
+              border: 1px solid #333;
+              padding: 10px 15px;
+              border-radius: 4px;
+              font-size: 0.9rem;
+              margin-bottom: 20px;
+              display: flex;
+              gap: 8px;
+              color: #888;
+            "
+          >
+            <!-- Breadcrumbs will go here -->
+          </div>
+
+          <div
+            id="folder-tiles-container"
+            class="tiles-grid"
+            style="
+              grid-template-columns: repeat(auto-fill, 128px);
+              grid-auto-rows: 128px;
+              gap: 10px;
+            "
+          >
+            <p style="grid-column: 1/-1; opacity: 0.7">Loading folders...</p>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-top: 30px;
+              border-top: 1px solid #333;
+              padding-top: 20px;
+              margin-bottom: 15px;
+            "
+          >
+            <h3 style="margin: 0; font-size: 1.1rem; color: #0066ff">
+              Folder Album:
+              <span
+                id="selected-folder-name"
+                style="color: white; font-weight: normal"
+              ></span>
+              <span
+                id="selected-folder-count"
+                style="color: #888; font-size: 0.9rem; font-weight: normal"
+              ></span>
+            </h3>
+
+            <div style="display: flex; gap: 10px; align-items: center">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-size: 0.8rem;
+                  opacity: 0.7;
+                "
+              >
+                Sort:
+                <select
+                  id="sort-image-select"
+                  style="
+                    width: auto;
+                    background-color: #121216;
+                    border: 1px solid #333;
+                    color: var(--vscode-fg);
+                    padding: 5px;
+                    border-radius: 3px;
+                    outline: none;
+                  "
+                >
+                  <option value="name">Name</option>
+                </select>
+                <select
+                  id="sort-image-order"
+                  style="
+                    width: auto;
+                    background-color: #121216;
+                    border: 1px solid #333;
+                    color: var(--vscode-fg);
+                    padding: 5px;
+                    border-radius: 3px;
+                    outline: none;
+                  "
+                >
+                  <option value="asc">ASC</option>
+                  <option value="desc">DESC</option>
+                </select>
+              </div>
+              <button
+                id="upload-files-btn"
+                style="
+                  width: auto;
+                  background-color: #0066ff;
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                "
+              >
+                <span>📄</span> Upload Files
+              </button>
+              <button
+                id="upload-folder-btn"
+                style="
+                  width: auto;
+                  background-color: transparent;
+                  border: 1px solid #333;
+                  color: #0066ff;
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                "
+              >
+                <span>📁</span> Upload Folder
+              </button>
+              <button
+                id="close-album-btn"
+                style="
+                  width: auto;
+                  background-color: transparent;
+                  border: 1px solid #333;
+                  color: #888;
+                  padding: 6px 12px;
+                  font-size: 0.8rem;
+                "
+              >
+                Close Album
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="image-tiles-container"
+            class="tiles-grid"
+            style="
+              grid-template-columns: repeat(auto-fill, 128px);
+              grid-auto-rows: 128px;
+              gap: 10px;
+            "
+          >
+            <p style="grid-column: 1/-1; opacity: 0.7">No images to display.</p>
+          </div>
         </div>
+      </div>
+
+      <!-- Tab: Jobs -->
+      <div
+        id="tab-jobs"
+        class="tab-content"
+        style="display: none; width: 100%; gap: 20px"
+      >
+        <div class="card" style="flex: 100">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+            "
+          >
+            <h2 style="margin: 0; border: none; padding: 0">Extraction Jobs</h2>
+            <button id="refresh-jobs-btn" style="width: auto">
+              Refresh Jobs
+            </button>
+          </div>
+          <div id="jobs-list">
+            <p style="opacity: 0.7">No jobs running or queued.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: API Stats -->
+      <div
+        id="tab-api"
+        class="tab-content"
+        style="display: none; width: 100%; gap: 20px"
+      >
+        <div class="card" style="flex: 100">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 1px solid var(--vscode-border);
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            "
+          >
+            <h2 style="border: none; margin: 0; padding: 0">
+              Performance Summary & API Endpoints
+            </h2>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <button
+                id="force-refresh-btn"
+                type="button"
+                style="width: auto; padding: 4px 8px; font-size: 0.8rem"
+              >
+                Refresh Now
+              </button>
+              <span
+                id="refresh-timer"
+                style="font-size: 0.8rem; color: var(--vscode-fg); opacity: 0.7"
+                >Refreshes in 60s</span
+              >
+            </div>
+          </div>
+
+          <div id="perf-content">
+            <table id="perf-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="2">Loading stats...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top: 20px; font-size: 1rem">Model Breakdown</h3>
+          <table id="model-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Calls</th>
+                <th>Avg (s)</th>
+                <th>Min (s)</th>
+                <th>Max (s)</th>
+              </tr>
+            </thead>
+            <tbody id="model-body">
+              <tr>
+                <td colspan="5">Loading data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
 
-    <footer>
-        Caption Extractor v1.0.0 | &copy; 2024 DevOpsNextGenX
-    </footer>
+    <!-- Slideshow Overlay -->
+    <div
+      id="slideshow-overlay"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.95);
+        z-index: 2000;
+        flex-direction: row;
+        font-family: sans-serif;
+      "
+    >
+      <!-- Main Image Area -->
+      <div
+        style="
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+        "
+      >
+        <div
+          style="
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 2001;
+            color: white;
+            font-size: 1.2rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+          "
+          id="slideshow-title"
+        >
+          Image Name
+        </div>
+        <button
+          class="slideshow-close"
+          id="slideshow-close"
+          style="
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 2001;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          &times;
+        </button>
+        <button
+          class="slideshow-nav prev"
+          id="slideshow-prev"
+          style="
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2001;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            padding: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+          "
+        >
+          &#10094;
+        </button>
+        <div
+          style="
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 20px;
+          "
+        >
+          <img
+            id="slideshow-img"
+            src=""
+            alt="Slideshow Image"
+            style="max-width: 100%; max-height: 100%; object-fit: contain"
+          />
+        </div>
+        <button
+          class="slideshow-nav next"
+          id="slideshow-next"
+          style="
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2001;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            padding: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+          "
+        >
+          &#10095;
+        </button>
+        <button
+          id="toggle-caption-btn"
+          style="
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            z-index: 2001;
+            background: #0066ff;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: auto;
+          "
+        >
+          Toggle Captions
+        </button>
+      </div>
+      <!-- Sidebar Resize Handle -->
+      <div
+        id="slideshow-resize-handle"
+        style="
+          width: 6px;
+          background: transparent;
+          cursor: col-resize;
+          display: none;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2002;
+          transition: background 0.15s;
+        "
+        title="Drag to resize panel"
+      >
+        <div style="
+          position: absolute;
+          top: 0; bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 2px;
+          background: #333;
+          border-radius: 2px;
+          transition: background 0.15s, width 0.15s;
+        " id="resize-handle-inner"></div>
+      </div>
+      <!-- Sidebar -->
+      <div
+        id="slideshow-caption-panel"
+        style="
+          width: 400px;
+          min-width: 180px;
+          max-width: 80vw;
+          background-color: #1e1e24;
+          border-left: 1px solid #333;
+          display: none;
+          flex-direction: column;
+          overflow-y: auto;
+          flex-shrink: 0;
+        "
+      >
+        <div style="padding: 20px; border-bottom: 1px solid #333">
+          <h3 style="margin: 0; color: white; border: none; padding: 0">
+            Extracted Metadata
+          </h3>
+        </div>
+        <div style="padding: 20px; font-size: 0.9rem; overflow-x: hidden">
+          <pre
+            style="background: transparent; border: none; padding: 0; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word"
+          ><code id="slideshow-caption-content" class="language-yaml"></code></pre>
+        </div>
+      </div>
+    </div>
+
+    <footer>Caption Extractor v1.0.0 | &copy; 2024 DevOpsNextGenX</footer>
 
     <!-- PrismJS Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-json.min.js"></script>
-
-    <script>
-        // Process Form Logic
-        document.getElementById('process-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const btn = document.getElementById('process-btn');
-            const loader = document.getElementById('loader');
-            const resultArea = document.getElementById('result-area');
-            const formData = new FormData(this);
-
-            // Handle optional text inputs
-            if (!formData.get('vision_model')) formData.delete('vision_model');
-            if (!formData.get('text_model')) formData.delete('text_model');
-
-            // UI State: Loading
-            btn.disabled = true;
-            btn.textContent = 'Processing...';
-            loader.style.display = 'block';
-            resultArea.textContent = 'Processing...';
-            // Reset highlighting during loading
-            resultArea.removeAttribute('data-highlighted');
-
-            try {
-                const response = await fetch('/process', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.detail || 'Processing failed');
-                }
-
-                const data = await response.json();
-                resultArea.textContent = JSON.stringify(data, null, 2);
-                // Trigger Prism highlight
-                Prism.highlightElement(resultArea);
-            } catch (error) {
-                resultArea.textContent = 'Error: ' + error.message;
-            } finally {
-                // UI State: Reset
-                btn.disabled = false;
-                btn.textContent = 'AI Image Extract';
-                loader.style.display = 'none';
-            }
-        });
-
-        // Image Preview Logic
-        document.getElementById('image-file').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            const previewContainer = document.getElementById('preview-container');
-            const previewImage = document.getElementById('image-preview');
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    previewImage.src = e.target.result;
-                    previewContainer.style.display = 'block';
-                }
-                reader.readAsDataURL(file);
-            } else {
-                previewContainer.style.display = 'none';
-                previewImage.src = '';
-            }
-        });
-
-        // Copy to Clipboard
-        document.getElementById('copy-btn').addEventListener('click', function () {
-            const resultText = document.getElementById('result-area').textContent;
-            navigator.clipboard.writeText(resultText).then(() => {
-                const originalText = this.textContent;
-                this.textContent = 'Copied!';
-                setTimeout(() => {
-                    this.textContent = originalText;
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-            });
-        });
-
-        // Performance Summary Logic
-        let timeLeft = 60;
-        const timerDisplay = document.getElementById('refresh-timer');
-
-        async function fetchPerformance() {
-            try {
-                const response = await fetch('/performance/summary');
-                if (!response.ok) return;
-
-                const data = await response.json();
-                renderPerformance(data);
-            } catch (e) {
-                console.error("Failed to fetch performance stats", e);
-            }
-        }
-
-        // Force Refresh Button
-        document.getElementById('force-refresh-btn').addEventListener('click', function () {
-            fetchPerformance();
-            timeLeft = 60; // Reset timer on manual refresh
-            timerDisplay.textContent = `Refreshes in ${timeLeft}s`;
-        });
-
-        function renderPerformance(data) {
-            const perfBody = document.querySelector('#perf-table tbody');
-            const modelBody = document.querySelector('#model-table tbody');
-
-            // Render General Stats
-            let generalHtml = '';
-            if (data.total_requests !== undefined) {
-                generalHtml += `<tr><td>Total Requests</td><td>${data.total_requests}</td></tr>`;
-                generalHtml += `<tr><td>Server Uptime</td><td>${formatUptime(data.uptime_seconds)}</td></tr>`;
-            } else {
-                generalHtml = '<tr><td colspan="2">No data available</td></tr>';
-            }
-            perfBody.innerHTML = generalHtml;
-
-            // Render Model Breakdown
-            // Expected nested structure: data.request_types -> [ { request_type, total_requests, model_breakdown: [ { model, count, avg_time, min_time, max_time } ] } ]
-            if (data.request_types && Array.isArray(data.request_types)) {
-                let modelHtml = '';
-
-                // We want to flatten this slightly for the table:
-                // Request Type | Model | Count | Avg (s) | Min (s) | Max (s)
-
-                // Update table header first to match new columns
-                // Update table header to remove Request Type column
-                const modelHead = document.querySelector('#model-table thead tr');
-                if (modelHead) {
-                    modelHead.innerHTML = `
-                        <th>Model</th>
-                        <th>Calls</th>
-                        <th>Avg (s)</th>
-                        <th>Min (s)</th>
-                        <th>Max (s)</th>
-                    `;
-                }
-
-                data.request_types.forEach(rt => {
-                    // Group Header
-                    const typeClass = `type-${rt.request_type.toLowerCase()}`;
-                    modelHtml += `
-                        <tr class="group-header ${typeClass}">
-                            <td colspan="5">
-                                ${rt.request_type.toUpperCase()} 
-                                <span style="font-weight: normal; font-size: 0.8rem; color: var(--vscode-fg); margin-left: 10px;">
-                                    (${rt.total_requests} requests)
-                                </span>
-                            </td>
-                        </tr>
-                    `;
-
-                    if (rt.model_breakdown && Array.isArray(rt.model_breakdown)) {
-                        rt.model_breakdown.forEach(m => {
-                            modelHtml += `
-                                <tr class="sub-row">
-                                    <td class="${typeClass}" style="padding-left: 20px;">${m.model}</td>
-                                    <td>${m.count}</td>
-                                    <td>${m.avg_time.toFixed(3)}</td>
-                                    <td>${m.min_time.toFixed(3)}</td>
-                                    <td>${m.max_time.toFixed(3)}</td>
-                                </tr>
-                            `;
-                        });
-                    }
-                });
-                modelBody.innerHTML = modelHtml || '<tr><td colspan="5">No model usage yet</td></tr>';
-            } else {
-                modelBody.innerHTML = '<tr><td colspan="5">No detailed model stats available</td></tr>';
-            }
-        }
-
-        function formatUptime(seconds) {
-            if (!seconds) return '0s';
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = Math.floor(seconds % 60);
-            return `${h}h ${m}m ${s}s`;
-        }
-
-        // Auto-refresh loop
-        setInterval(() => {
-            timeLeft--;
-            if (timeLeft <= 0) {
-                fetchPerformance();
-                timeLeft = 60;
-            }
-            timerDisplay.textContent = `Refreshes in ${timeLeft}s`;
-        }, 1000);
-
-        // Initial Load
-        fetchPerformance();
-    </script>
-</body>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-yaml.min.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
 </html>

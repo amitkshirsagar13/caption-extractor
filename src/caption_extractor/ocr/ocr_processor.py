@@ -27,137 +27,180 @@ class OCRProcessor:
         # Initialize PaddleOCR with configuration
         self._init_paddleocr()
     
+    # def _init_paddleocr(self):
+    #     """Initialize PaddleOCR with configuration settings."""
+    #     # Disable oneDNN to prevent segmentation faults on Windows
+    #     os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
+    #     os.environ['FLAGS_use_mkldnn'] = '0'
+        
+    #     # Enable PaddleOCR logging to see download URLs
+    #     os.environ['PPOCR_DEBUG'] = '1'
+        
+    #     # Set custom cache directory if configured
+    #     # IMPORTANT: Must be set BEFORE importing PaddleOCR
+    #     cache_dir = self.ocr_config.get('model_cache_dir')
+    #     if cache_dir:
+    #         cache_dir = os.path.abspath(os.path.expanduser(cache_dir))
+    #         os.environ['PPOCR_HOME'] = cache_dir
+    #         logger.info(f"Using configured PaddleOCR cache directory: {cache_dir}")
+    #     else:
+    #         cache_dir = os.path.expanduser('~/.paddleocr')
+    #         logger.info(f"Using default PaddleOCR cache directory: {cache_dir}")
+        
+    #     # Import PaddleOCR AFTER setting environment variables
+    #     from paddleocr import PaddleOCR
+        
+    #     logger.info("Initializing PaddleOCR...")
+    #     logger.info(f"OCR Configuration: {self.ocr_config}")
+        
+    #     # Basic settings
+    #     lang = self.ocr_config.get('lang', 'devanagari')
+    #     ocr_params = {
+    #         'lang': lang,
+    #         'use_angle_cls': self.ocr_config.get('use_angle_cls', True),
+    #         # 'use_gpu': False,  # Force CPU to avoid GPU-related crashes
+    #         # 'show_log': False,  # Reduce verbosity
+    #     }
+        
+    #     # Explicitly set model directories to use the configured cache location
+    #     # This ensures PaddleOCR uses our custom location instead of the default
+    #     if cache_dir:
+    #         # Create the directory structure if it doesn't exist
+    #         os.makedirs(cache_dir, exist_ok=True)
+            
+    #         # Set explicit paths for each model type
+    #         det_model_dir = os.path.join(cache_dir, 'whl', 'det', lang, f'{lang}_PP-OCRv5_det_infer')
+    #         rec_model_dir = os.path.join(cache_dir, 'whl', 'rec', lang, f'{lang}_PP-OCRv5_rec_infer')
+    #         cls_model_dir = os.path.join(cache_dir, 'whl', 'cls', 'ch_ppocr_mobile_v2.0_cls_infer')
+            
+    #         ocr_params['det_model_dir'] = det_model_dir
+    #         ocr_params['rec_model_dir'] = rec_model_dir
+    #         ocr_params['cls_model_dir'] = cls_model_dir
+            
+    #         logger.info(f"Detection model directory: {det_model_dir}")
+    #         logger.info(f"Recognition model directory: {rec_model_dir}")
+    #         logger.info(f"Classification model directory: {cls_model_dir}")
+        
+    #     # Model directory (legacy config, if specified)
+    #     model_dir = self.ocr_config.get('model_dir')
+    #     if model_dir:
+    #         ocr_params['model_dir'] = model_dir
+    #         logger.info(f"Using legacy model directory: {model_dir}")
+        
+    #     # Detection parameters
+    #     det_config = self.ocr_config.get('detection', {})
+    #     ocr_params.update({
+    #         'det_db_thresh': det_config.get('det_db_thresh', 0.3),
+    #         'det_db_box_thresh': det_config.get('det_db_box_thresh', 0.5),
+    #         'det_db_unclip_ratio': det_config.get('det_db_unclip_ratio', 1.6),
+    #     })
+        
+    #     # Recognition parameters - reduce batch size to prevent crashes
+    #     rec_config = self.ocr_config.get('recognition', {})
+    #     ocr_params.update({
+    #         'rec_batch_num': 1,  # Use batch size of 1 to avoid memory issues
+    #     })
+        
+    #     # Classification parameters - reduce batch size
+    #     cls_config = self.ocr_config.get('classification', {})
+    #     ocr_params.update({
+    #         'cls_batch_num': 1,  # Use batch size of 1 to avoid memory issues
+    #     })
+        
+    #     logger.info("=" * 80)
+    #     logger.info("PaddleOCR will now attempt to download models if not cached.")
+    #     logger.info("Model download URLs for English (en) language:")
+    #     logger.info("-" * 80)
+    #     logger.info("Detection Model (PP-OCRv5):")
+    #     logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
+    #     logger.info("")
+    #     logger.info("Recognition Model (PP-OCRv5):")
+    #     logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_rec_infer.tar")
+    #     logger.info("")
+    #     logger.info("Angle Classification Model:")
+    #     logger.info("  URL: https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar")
+    #     logger.info("")
+    #     logger.info("Models will be downloaded to:")
+    #     logger.info(f"  Cache directory: {cache_dir}")
+    #     logger.info(f"  (Configure via ocr.model_cache_dir in config.yml)")
+    #     logger.info("=" * 80)
+        
+    #     try:
+    #         logger.info("Attempting to initialize PaddleOCR with parameters:")
+    #         for key, value in ocr_params.items():
+    #             logger.info(f"  {key}: {value}")
+            
+    #         self.ocr = PaddleOCR(**ocr_params)
+    #         self.ocr_engine = self.ocr  # Alias for consistency
+    #         logger.info("PaddleOCR initialized successfully!")
+            
+    #     except Exception as e:
+    #         logger.error("=" * 80)
+    #         logger.error("PADDLEOCR INITIALIZATION FAILED")
+    #         logger.error("=" * 80)
+    #         logger.error(f"Error: {str(e)}")
+    #         logger.error("")
+    #         logger.error("TROUBLESHOOTING STEPS:")
+    #         logger.error("1. Check if you can access these URLs in your browser:")
+    #         logger.error("   - https://paddleocr.bj.bcebos.com/")
+    #         logger.error("   - https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
+    #         logger.error("")
+    #         logger.error("2. If URLs are blocked, download models manually:")
+    #         logger.error("   python download_models.py")
+    #         logger.error("")
+    #         logger.error("3. Check if models are already cached:")
+    #         logger.error(f"   dir {os.path.expanduser('~')}\\.paddleocr")
+    #         logger.error("")
+    #         logger.error("4. If behind proxy, set environment variables:")
+    #         logger.error("   set HTTP_PROXY=http://proxy:port")
+    #         logger.error("   set HTTPS_PROXY=http://proxy:port")
+    #         logger.error("=" * 80)
+    #         raise
+
     def _init_paddleocr(self):
         """Initialize PaddleOCR with configuration settings."""
-        # Disable oneDNN to prevent segmentation faults on Windows
         os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
         os.environ['FLAGS_use_mkldnn'] = '0'
-        
-        # Enable PaddleOCR logging to see download URLs
-        os.environ['PPOCR_DEBUG'] = '1'
-        
-        # Set custom cache directory if configured
-        # IMPORTANT: Must be set BEFORE importing PaddleOCR
+
+        # PaddleOCR 2.9+ uses PaddleX internally — cache dir is PADDLEX_HOME
         cache_dir = self.ocr_config.get('model_cache_dir')
         if cache_dir:
             cache_dir = os.path.abspath(os.path.expanduser(cache_dir))
+            os.makedirs(cache_dir, exist_ok=True)
+            # 2.9+ uses PADDLEX_HOME; keep PPOCR_HOME for fallback/older installs
+            os.environ['PADDLEX_HOME'] = cache_dir
             os.environ['PPOCR_HOME'] = cache_dir
             logger.info(f"Using configured PaddleOCR cache directory: {cache_dir}")
         else:
             cache_dir = os.path.expanduser('~/.paddleocr')
             logger.info(f"Using default PaddleOCR cache directory: {cache_dir}")
-        
-        # Import PaddleOCR AFTER setting environment variables
+
         from paddleocr import PaddleOCR
-        
-        logger.info("Initializing PaddleOCR...")
-        logger.info(f"OCR Configuration: {self.ocr_config}")
-        
-        # Basic settings
-        lang = self.ocr_config.get('lang', 'devanagari')
+        import paddleocr as _poc
+        logger.info(f"PaddleOCR version: {getattr(_poc, '__version__', 'unknown')}")
+
+        lang = self.ocr_config.get('lang', 'en')
+
+        # PaddleOCR 2.9+ constructor — only pass supported params
+        # Model dirs, batch sizes, det thresholds are gone; PaddleX handles them
         ocr_params = {
             'lang': lang,
-            'use_angle_cls': self.ocr_config.get('use_angle_cls', True),
-            # 'use_gpu': False,  # Force CPU to avoid GPU-related crashes
-            # 'show_log': False,  # Reduce verbosity
         }
-        
-        # Explicitly set model directories to use the configured cache location
-        # This ensures PaddleOCR uses our custom location instead of the default
-        if cache_dir:
-            # Create the directory structure if it doesn't exist
-            os.makedirs(cache_dir, exist_ok=True)
-            
-            # Set explicit paths for each model type
-            det_model_dir = os.path.join(cache_dir, 'whl', 'det', lang, f'{lang}_PP-OCRv5_det_infer')
-            rec_model_dir = os.path.join(cache_dir, 'whl', 'rec', lang, f'{lang}_PP-OCRv5_rec_infer')
-            cls_model_dir = os.path.join(cache_dir, 'whl', 'cls', 'ch_ppocr_mobile_v2.0_cls_infer')
-            
-            ocr_params['det_model_dir'] = det_model_dir
-            ocr_params['rec_model_dir'] = rec_model_dir
-            ocr_params['cls_model_dir'] = cls_model_dir
-            
-            logger.info(f"Detection model directory: {det_model_dir}")
-            logger.info(f"Recognition model directory: {rec_model_dir}")
-            logger.info(f"Classification model directory: {cls_model_dir}")
-        
-        # Model directory (legacy config, if specified)
-        model_dir = self.ocr_config.get('model_dir')
-        if model_dir:
-            ocr_params['model_dir'] = model_dir
-            logger.info(f"Using legacy model directory: {model_dir}")
-        
-        # Detection parameters
-        det_config = self.ocr_config.get('detection', {})
-        ocr_params.update({
-            'det_db_thresh': det_config.get('det_db_thresh', 0.3),
-            'det_db_box_thresh': det_config.get('det_db_box_thresh', 0.5),
-            'det_db_unclip_ratio': det_config.get('det_db_unclip_ratio', 1.6),
-        })
-        
-        # Recognition parameters - reduce batch size to prevent crashes
-        rec_config = self.ocr_config.get('recognition', {})
-        ocr_params.update({
-            'rec_batch_num': 1,  # Use batch size of 1 to avoid memory issues
-        })
-        
-        # Classification parameters - reduce batch size
-        cls_config = self.ocr_config.get('classification', {})
-        ocr_params.update({
-            'cls_batch_num': 1,  # Use batch size of 1 to avoid memory issues
-        })
-        
-        logger.info("=" * 80)
-        logger.info("PaddleOCR will now attempt to download models if not cached.")
-        logger.info("Model download URLs for English (en) language:")
-        logger.info("-" * 80)
-        logger.info("Detection Model (PP-OCRv5):")
-        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
-        logger.info("")
-        logger.info("Recognition Model (PP-OCRv5):")
-        logger.info("  URL: https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_rec_infer.tar")
-        logger.info("")
-        logger.info("Angle Classification Model:")
-        logger.info("  URL: https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar")
-        logger.info("")
-        logger.info("Models will be downloaded to:")
-        logger.info(f"  Cache directory: {cache_dir}")
-        logger.info(f"  (Configure via ocr.model_cache_dir in config.yml)")
-        logger.info("=" * 80)
-        
-        try:
-            logger.info("Attempting to initialize PaddleOCR with parameters:")
-            for key, value in ocr_params.items():
-                logger.info(f"  {key}: {value}")
-            
-            self.ocr = PaddleOCR(**ocr_params)
-            self.ocr_engine = self.ocr  # Alias for consistency
-            logger.info("PaddleOCR initialized successfully!")
-            
-        except Exception as e:
-            logger.error("=" * 80)
-            logger.error("PADDLEOCR INITIALIZATION FAILED")
-            logger.error("=" * 80)
-            logger.error(f"Error: {str(e)}")
-            logger.error("")
-            logger.error("TROUBLESHOOTING STEPS:")
-            logger.error("1. Check if you can access these URLs in your browser:")
-            logger.error("   - https://paddleocr.bj.bcebos.com/")
-            logger.error("   - https://paddleocr.bj.bcebos.com/PP-OCRv5/english/en_PP-OCRv5_det_infer.tar")
-            logger.error("")
-            logger.error("2. If URLs are blocked, download models manually:")
-            logger.error("   python download_models.py")
-            logger.error("")
-            logger.error("3. Check if models are already cached:")
-            logger.error(f"   dir {os.path.expanduser('~')}\\.paddleocr")
-            logger.error("")
-            logger.error("4. If behind proxy, set environment variables:")
-            logger.error("   set HTTP_PROXY=http://proxy:port")
-            logger.error("   set HTTPS_PROXY=http://proxy:port")
-            logger.error("=" * 80)
-            raise
 
-    
+        # Device selection
+        use_gpu = self.ocr_config.get('use_gpu', False)
+        ocr_params['device'] = 'gpu' if use_gpu else 'cpu'
+
+        logger.info(f"Initializing PaddleOCR 2.9+ with params: {ocr_params}")
+
+        try:
+            self.ocr = PaddleOCR(**ocr_params)
+            self.ocr_engine = self.ocr
+            logger.info("PaddleOCR initialized successfully!")
+        except Exception as e:
+            logger.error(f"PaddleOCR initialization failed: {e}")
+            raise    
+
     def preprocess_image(self, image_path: str, preprocessing_config: Dict[str, Any] = None) -> np.ndarray:
         """Preprocess image for OCR with enhanced controls.
         
@@ -567,40 +610,44 @@ class OCRProcessor:
             self.logger.info(f"Passing to PaddleOCR: shape={image.shape}, dtype={image.dtype}, contiguous={image.flags['C_CONTIGUOUS']}")
 
             try:
-                results = self.ocr_engine.ocr(image)
+                results = self.ocr_engine.ocr(image_path)
             except Exception as ocr_err:
-                error_msg = str(ocr_err)
-                
-                # Check for PaddlePaddle internal errors (vector, trace_order, dependency, etc.)
-                if any(keyword in error_msg.lower() for keyword in ['vector<bool>', 'trace_order', 'dependency_count', 'preconditionnotmet']):
-                    self.logger.error("=" * 80)
-                    self.logger.error("CRITICAL: PaddlePaddle Internal Error Detected")
-                    self.logger.error("=" * 80)
-                    self.logger.error(f"Error: {error_msg}")
-                    self.logger.error("")
-                    self.logger.error("This error indicates a PaddlePaddle bug or incompatibility.")
-                    self.logger.error("")
-                    self.logger.error("RECOMMENDED FIXES:")
-                    self.logger.error("1. Reinstall PaddlePaddle and PaddleOCR:")
-                    self.logger.error("   pip uninstall paddlepaddle paddleocr -y")
-                    self.logger.error("   pip install paddlepaddle")
-                    self.logger.error("   pip install paddleocr")
-                    self.logger.error("")
-                    self.logger.error("2. Clear PaddleOCR model cache:")
-                    self.logger.error(f"   rmdir /s /q {os.path.expanduser('~')}\\.paddleocr")
-                    self.logger.error("")
-                    self.logger.error("3. If using Python 3.13, downgrade to Python 3.11:")
-                    self.logger.error("   PaddlePaddle may not fully support Python 3.13 yet")
-                    self.logger.error("")
-                    self.logger.error("4. Try processing one image at a time (disable batch processing)")
-                    self.logger.error("")
-                    self.logger.error("5. Alternative: Disable OCR in config.yml:")
-                    self.logger.error("   pipeline:")
-                    self.logger.error("     enable_ocr: false")
-                    self.logger.error("")
-                    self.logger.error("See PADDLEOCR_FIX.md for detailed instructions")
-                    self.logger.error("=" * 80)
-                    raise RuntimeError(f"PaddlePaddle internal error - reinstallation required: {error_msg}")
+                try:
+                    logger.warning("Path-based OCR failed, retrying with numpy array")
+                    results = self.ocr_engine.ocr(image)
+                except Exception:
+                    error_msg = str(ocr_err)
+                    
+                    # Check for PaddlePaddle internal errors (vector, trace_order, dependency, etc.)
+                    if any(keyword in error_msg.lower() for keyword in ['vector<bool>', 'trace_order', 'dependency_count', 'preconditionnotmet']):
+                        self.logger.error("=" * 80)
+                        self.logger.error("CRITICAL: PaddlePaddle Internal Error Detected")
+                        self.logger.error("=" * 80)
+                        self.logger.error(f"Error: {error_msg}")
+                        self.logger.error("")
+                        self.logger.error("This error indicates a PaddlePaddle bug or incompatibility.")
+                        self.logger.error("")
+                        self.logger.error("RECOMMENDED FIXES:")
+                        self.logger.error("1. Reinstall PaddlePaddle and PaddleOCR:")
+                        self.logger.error("   pip uninstall paddlepaddle paddleocr -y")
+                        self.logger.error("   pip install paddlepaddle")
+                        self.logger.error("   pip install paddleocr")
+                        self.logger.error("")
+                        self.logger.error("2. Clear PaddleOCR model cache:")
+                        self.logger.error(f"   rmdir /s /q {os.path.expanduser('~')}\\.paddleocr")
+                        self.logger.error("")
+                        self.logger.error("3. If using Python 3.13, downgrade to Python 3.11:")
+                        self.logger.error("   PaddlePaddle may not fully support Python 3.13 yet")
+                        self.logger.error("")
+                        self.logger.error("4. Try processing one image at a time (disable batch processing)")
+                        self.logger.error("")
+                        self.logger.error("5. Alternative: Disable OCR in config.yml:")
+                        self.logger.error("   pipeline:")
+                        self.logger.error("     enable_ocr: false")
+                        self.logger.error("")
+                        self.logger.error("See PADDLEOCR_FIX.md for detailed instructions")
+                        self.logger.error("=" * 80)
+                        raise RuntimeError(f"PaddlePaddle internal error - reinstallation required: {error_msg}")
                 
                 # Generic error handling
                 hint = (

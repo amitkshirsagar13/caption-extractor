@@ -289,3 +289,180 @@ tr:hover {
 .sub-row td {
     background-color: rgba(255, 255, 255, 0.02);
 }
+
+/* Tabs */
+.tabs-container {
+    display: flex;
+    background-color: var(--vscode-sidebar);
+    border-bottom: 1px solid var(--vscode-border);
+    padding: 0 20px;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    color: var(--vscode-fg);
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    width: auto;
+}
+.tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+.tab-btn.active {
+    border-bottom: 2px solid var(--vscode-accent);
+    color: white;
+}
+
+/* Tiles Grid */
+.tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+.tile {
+    background-color: var(--vscode-input-bg);
+    border: 1px solid var(--vscode-border);
+    border-radius: 5px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    text-align: center;
+}
+.tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.tile-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+.tile-name {
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+.folder-tile .tile-actions {
+    margin-top: 10px;
+    width: 100%;
+}
+.folder-tile .start-job-btn {
+    padding: 5px;
+    font-size: 0.8rem;
+}
+.caption-indicator {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
+}
+
+/* Jobs */
+#jobs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.job-card {
+    background-color: var(--vscode-input-bg);
+    border: 1px solid var(--vscode-border);
+    border-radius: 5px;
+    padding: 15px;
+}
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+.progress-bar-bg {
+    background-color: rgba(255, 255, 255, 0.1);
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+/* Slideshow Overlay */
+.slideshow-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.slideshow-container {
+    position: relative;
+    width: 90%;
+    height: 90%;
+    display: flex;
+}
+.slideshow-image-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.slideshow-image-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.slideshow-caption-panel {
+    width: 300px;
+    background-color: var(--vscode-sidebar);
+    border-left: 1px solid var(--vscode-border);
+    padding: 20px;
+    overflow-y: auto;
+}
+.slideshow-close {
+    position: absolute;
+    top: 10px; right: 10px;
+    font-size: 2rem;
+    color: white;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: auto;
+    padding: 0;
+}
+.slideshow-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    font-size: 2rem;
+    padding: 10px;
+    cursor: pointer;
+    width: auto;
+}
+.slideshow-nav:hover { background: rgba(0,0,0,0.8); }
+.slideshow-nav.prev { left: 10px; }
+.slideshow-nav.next { right: 10px; }
+
+.toggle-caption-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: auto;
+    z-index: 10;
+}

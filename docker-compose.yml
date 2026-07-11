@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  caption-extractor:
+    build: .
+    container_name: caption-extractor
+    # Use host networking to allow container to reach Ollama on the host
+    network_mode: host
+    environment:
+      - OLLAMA_HOST=http://localhost:11434
+    volumes:
+      - ./data:/media/data
+      - ./logs:/logs
+    restart: unless-stopped

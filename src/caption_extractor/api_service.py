@@ -7,8 +7,8 @@ import uuid
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, Query
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 from .config_manager import ConfigManager
 from .pipeline.step_processor.single_image_processor import SingleImageProcessor
 from .performance import PerformanceStatsManager
+from .job_manager import list_jobs, create_job, get_job
+from .job_worker import start_job_worker, pause_job, resume_job, cancel_job, is_image_file
 
 
 # Get logger - logging will be configured by ConfigManager
@@ -62,6 +64,9 @@ class ErrorResponse(BaseModel):
     """Error response model."""
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Error details")
+
+class JobCreateRequest(BaseModel):
+    folder_path: str
 
 
 # Initialize FastAPI app
@@ -150,13 +155,12 @@ async def shutdown_event():
         performance_stats.shutdown()
 
 
-@app.get("/", response_class=JSONResponse)
+@app.get("/", response_class=HTMLResponse)  # ← correct response class
 async def root(request: Request):
-    """Serve the home page."""
     return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
+        request=request,           # ← new Starlette API (>=0.36)
+        name="index.html",
+        context={
             "status": "running",
             "version": "1.0.0",
             "config_loaded": config_manager is not None
@@ -441,6 +445,162 @@ async def save_performance_stats():
             status_code=500,
             detail=f"Failed to save performance statistics: {str(e)}"
         )
+
+
+@app.get("/folders")
+async def list_folders(path: str = Query(..., description="Path to list folders from")):
+    """List folders and return the first image as thumbnail."""
+    try:
+        base_dir = Path(path)
+        if not base_dir.exists() or not base_dir.is_dir():
+            return {"folders": []}
+            
+        result = []
+        for d in base_dir.iterdir():
+            if d.is_dir():
+                # Find first image
+                first_img = None
+                image_count = 0
+                try:
+                    for p in d.iterdir():
+                        if p.is_file() and is_image_file(str(p)):
+                            if first_img is None:
+                                first_img = str(p)
+                            image_count += 1
+                except PermissionError:
+                    pass
+                
+                if first_img is None:
+                    try:
+                        for p in d.rglob('*'):
+                            if p.is_file() and is_image_file(str(p)):
+                                first_img = str(p)
+                                break
+                    except Exception:
+                        pass
+                
+                result.append({
+                    "name": d.name,
+                    "path": str(d),
+                    "first_image": first_img,
+                    "image_count": image_count
+                })
+        return {"folders": result}
+    except Exception as e:
+        logger.error(f"Error listing folders: {e}")
+        return {"folders": []}
+
+
+@app.get("/folders/images")
+async def get_folder_images(path: str = Query(..., description="Path to folder")):
+    """Get all images and their caption statuses in a folder."""
+    try:
+        folder = Path(path)
+        if not folder.exists() or not folder.is_dir():
+            return {"images": []}
+            
+        images = []
+        for p in folder.iterdir():
+            if p.is_file() and is_image_file(str(p)):
+                yml_path = p.with_suffix(".yml")
+                has_caption = yml_path.exists()
+
+                images.append({
+                    "name": p.name,
+                    "path": str(p),
+                    "has_caption": has_caption,
+                    "yml_path": str(yml_path) if has_caption else None
+                })
+        return {"images": images}
+    except Exception as e:
+        logger.error(f"Error listing images in folder: {e}")
+        return {"images": []}
+
+
+@app.get("/image")
+async def get_image(path: str = Query(..., description="Path to image file")):
+    """Serve an image file."""
+    try:
+        image_path = Path(path)
+        if not image_path.exists() or not image_path.is_file():
+            raise HTTPException(status_code=404, detail="Image not found")
+        return FileResponse(str(image_path))
+    except Exception as e:
+        logger.error(f"Error serving image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/image/yml")
+async def get_image_yml(path: str = Query(..., description="Path to image file")):
+    """Return raw YAML text for an image (loads the .yml file next to it)."""
+    from fastapi.responses import PlainTextResponse
+    try:
+        image_path = Path(path)
+        yml_path = image_path.with_suffix(".yml")
+        if not yml_path.exists():
+            raise HTTPException(status_code=404, detail="YML data not found for this image")
+        with open(yml_path, "r", encoding="utf-8") as f:
+            raw_yaml = f.read()
+        return PlainTextResponse(content=raw_yaml, media_type="text/plain; charset=utf-8")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving yml for image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/jobs")
+async def get_all_jobs():
+    """List all extraction jobs."""
+    try:
+        return {"jobs": list_jobs()}
+    except Exception as e:
+        return {"jobs": [], "error": str(e)}
+
+@app.post("/jobs")
+async def create_new_job(req: JobCreateRequest):
+    """Create a new background job to process a folder recursively."""
+    if image_processor is None:
+        raise HTTPException(status_code=503, detail="Image processor not initialized")
+    
+    try:
+        job_id = create_job(req.folder_path)
+        start_job_worker(job_id, req.folder_path, image_processor)
+        return {"job_id": job_id, "status": "started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """Get status of a specific job."""
+    try:
+        return get_job(job_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+@app.post("/jobs/{job_id}/pause")
+async def pause_existing_job(job_id: str):
+    try:
+        pause_job(job_id)
+        return {"status": "pause_requested"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/jobs/{job_id}/resume")
+async def resume_existing_job(job_id: str):
+    if image_processor is None:
+        raise HTTPException(status_code=503, detail="Image processor not initialized")
+    try:
+        resume_job(job_id, image_processor)
+        return {"status": "resume_requested"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/jobs/{job_id}/cancel")
+async def cancel_existing_job(job_id: str):
+    try:
+        cancel_job(job_id)
+        return {"status": "cancel_requested"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Error handlers
