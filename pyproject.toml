@@ -24,7 +24,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "paddleocr>=2.9.0",
+    "paddlepaddle-gpu>=3.0.0,<=3.1.1",
+    "paddleocr>=3.7.0",
     "pyyaml>=6.0",
     "pillow>=10.0.0",
     "opencv-python-headless>=4.8.0",
@@ -38,12 +39,6 @@ dependencies = [
     "jinja2>=3.1.0",
 ]
 
-[project.optional-dependencies]
-gpu = [
-    # Allows installation of core packages from PyPI cleanly, 
-    # leaving the exact CUDA variant to the user's local index selection
-    "paddlepaddle-gpu>=2.6.0", 
-]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -51,6 +46,11 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.0.0",
 ]
+
+[[tool.uv.index]]
+name = "paddlepaddle"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
+explicit = true
 
 [project.urls]
 Homepage = "https://github.com/devopsnextgenx/caption-extractor"
@@ -85,7 +85,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

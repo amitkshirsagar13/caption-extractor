@@ -101,7 +101,7 @@ ollama:
   # Translator Agent Configuration
   translator_agent:
     # Model used for translation (if not set, text_model will be used)
-    model: null
+    model: translategemma:4b
     # Temperature for generation (0.0 = deterministic)
     temperature: 0.0
     # Maximum tokens to generate for translation
@@ -123,7 +123,7 @@ model:
   # Language support
   lang: "devanagari"
   # Use GPU if available (disabled for stability)
-  use_gpu: false
+  use_gpu: true
 
 # Data Configuration
 data:

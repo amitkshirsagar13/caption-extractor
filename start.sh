@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-source /home/kira/git/devopsnextgenx/caption-extractor/.venv/bin/activate
+source .venv/bin/activate 2>/dev/null || true  # Activate virtual environment if it exists
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,13 +48,23 @@ setup_environment() {
     # Create virtual environment if it doesn't exist
     if [ ! -d ".venv" ]; then
         print_status "Creating virtual environment..."
-        uv venv
+        python3.12 -m venv .venv
     fi
     
-    # Install dependencies
-    print_status "Installing dependencies..."
-    uv pip install -e .
+    # Activate the environment briefly to ensure tools are in place
+    source .venv/bin/activate
     
+    print_status "Installing build requirements and dependencies..."
+    
+    print_status "Using Python version: $(python --version)"
+    # 1. Force install hatchling first
+    uv pip install hatchling editables
+
+    print_status "Installing project dependencies..."
+    
+    # 2. Install your project using --no-build-isolation
+    uv pip install --no-build-isolation --index-url https://pypi.org/simple --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/ --index-strategy unsafe-best-match -e .
+
     print_success "Environment setup completed"
 }
 

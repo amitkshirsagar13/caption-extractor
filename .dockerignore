@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+
+preset/
+data/
+.pytest_cache/
+.mypy_cache/
+logs/
+examples/
