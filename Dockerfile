@@ -31,6 +31,8 @@ RUN apt-get update \
 ENV PADDLE_DISABLE_ONEDNN=1
 ENV FLAGS_use_mkldnn=0
 ENV FLAGS_enable_pir_api=0
+ENV PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+ENV PADDLE_MODEL_CACHE_DIR=/home/appuser/.paddlex
 
 WORKDIR /app
 
@@ -77,6 +79,9 @@ COPY --chown=appuser:appuser models/.paddlex/ /home/appuser/.paddlex/
 
 # Pre-populate config
 COPY --chown=appuser:appuser config.docker.yml /app/config.yml
+
+# Warm OCR caches at build-time so first request does not trigger model downloads.
+RUN python -c "import sys; sys.path.insert(0, '/app/src'); from caption_extractor.config_manager import ConfigManager; from caption_extractor.ocr.ocr_processor import OCRProcessor; cfg = ConfigManager('/app/config.yml').config; OCRProcessor(cfg); print('OCR model warmup complete')"
 
 EXPOSE 8000
 

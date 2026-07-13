@@ -28,7 +28,8 @@ class OCRProcessor:
         # Configuration parameters driven by existing oct_processor.py structure
         self.enabled = config.get("enabled", True)
         self.use_gpu = self.ocr_config.get("use_gpu", True)
-        self.storage_folder = self.ocr_config.get("model_cache_dir", "./.paddleocr")
+        env_cache_dir = os.environ.get("PADDLE_MODEL_CACHE_DIR")
+        self.storage_folder = env_cache_dir or self.ocr_config.get("model_cache_dir", "~/.paddlex")
         self.lang = self.ocr_config.get("lang", "en")
         self.use_angle_cls = self.ocr_config.get("use_angle_cls", True)
         self.device = "gpu:0" if self.use_gpu else "cpu"
@@ -42,6 +43,7 @@ class OCRProcessor:
             os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
             os.environ['FLAGS_use_mkldnn'] = '0'
             os.environ['FLAGS_enable_pir_api'] = '0'
+            os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
             self.storage_folder = os.path.abspath(os.path.expanduser(self.storage_folder))
             os.environ["PADDLE_HOME"] = self.storage_folder
             os.environ['PADDLEX_HOME'] = self.storage_folder

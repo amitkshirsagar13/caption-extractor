@@ -181,7 +181,8 @@ ocr:
   # Model cache directory (where PaddleOCR downloads and stores models)
   # If not specified, defaults to ~/.paddleocr
   # Using a local path gives better control and portability
-  model_cache_dir: "models/.paddleocr"  # Local cache directory for PaddleOCR models
+  model_cache_dir: "/home/appuser/.paddlex"  # Matches Docker-preloaded PaddleX cache
+  preload_on_startup: true  # Initialize OCR engine during API startup
   
   # Minimum confidence threshold for text recognition (0.0 - 1.0)
   # Higher values = more strict, fewer false positives

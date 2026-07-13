@@ -1,0 +1,77 @@
+# syntax=docker/dockerfile:1
+# ====================================================================
+# STAGE 1: BUILDER (Fast Dependency Resolution with uv)
+# ====================================================================
+FROM docker.io/nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv python3.12-dev build-essential ca-certificates curl gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv instantly
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Create the virtual environment
+RUN python3.12 -m venv /venv
+ENV PATH="/venv/bin:${PATH}"
+
+# Copy ONLY the package manifest
+COPY pyproject.toml ./
+
+# Install only the external dependencies listed in your pyproject.toml 
+# (No one-liners, no hatchling activation, completely cached by Docker)
+# Install dependencies safely crossing both index pools
+RUN uv pip install --no-cache -r pyproject.toml \
+    --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/ \
+    --index-strategy unsafe-best-match
+
+# ====================================================================
+# STAGE 2: RUNTIME (Final Image)
+# ====================================================================
+FROM docker.io/nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=America/Detroit \
+    PADDLE_DISABLE_ONEDNN=1 \
+    FLAGS_use_mkldnn=0 \
+    FLAGS_enable_pir_api=0 \
+    PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True \
+    PADDLE_MODEL_CACHE_DIR=/home/appuser/.paddlex \
+    PATH="/venv/bin:${PATH}"
+
+# Install ONLY runtime system dependencies (No gcc, no dev tools, no software-properties-common)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 \
+        libgomp1 libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setup non-root user
+RUN useradd -m appuser \
+    && mkdir -p /app /app/logs /home/appuser/.paddlex \
+    && chown -R appuser:appuser /app /home/appuser
+
+WORKDIR /app
+
+# Copy the pre-built virtual environment from stage 1
+COPY --from=builder --chown=appuser:appuser /venv /venv
+
+# Copy application code
+COPY --chown=appuser:appuser src/ /app/src/
+COPY --chown=appuser:appuser start_api.py /app/start_api.py
+COPY --chown=appuser:appuser models/.paddlex/ /home/appuser/.paddlex/
+COPY --chown=appuser:appuser config.docker.yml /app/config.yml
+
+USER appuser
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "python -c \"import sys; sys.path.insert(0, '/app/src'); from caption_extractor.config_manager import ConfigManager; from caption_extractor.ocr.ocr_processor import OCRProcessor; cfg = ConfigManager('/app/config.yml').config; OCRProcessor(cfg); print('OCR runtime warmup complete')\" && uvicorn start_api:app --host 0.0.0.0 --port 8000"]

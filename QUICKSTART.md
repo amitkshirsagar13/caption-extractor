@@ -14,7 +14,7 @@ python -m caption_extractor.main --config config.yml --input-folder ./images
 ```bash
 cd /home/kira/git/devopsnextgenx/caption-extractor
 
-docker build -t docker.io/amitkshirsagar13/caption-extractor .
+docker build --no-cache -t docker.io/amitkshirsagar13/caption-extractor . -f dockerfile.gemini
 
 docker run --rm \
   --device nvidia.com/gpu=all \
@@ -25,6 +25,11 @@ docker run --rm \
   docker.io/amitkshirsagar13/caption-extractor
 
 ```
+
+Notes:
+- OCR models are now warmed during docker build, so first request should not download from Hugging Face.
+- Keep ocr.model_cache_dir as /home/appuser/.paddlex in the mounted config used by the container.
+- Rebuild the image after pulling latest changes: docker build --no-cache -t docker.io/amitkshirsagar13/caption-extractor .
 
 
 **Expected Output**:

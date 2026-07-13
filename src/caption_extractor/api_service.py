@@ -109,6 +109,20 @@ def initialize_services(config_path: str = "config.yml"):
         
         logger.info("Initializing image processor")
         image_processor = SingleImageProcessor(config_manager, performance_stats)
+
+        pipeline_cfg = config_manager.config.get('pipeline', {})
+        ocr_cfg = config_manager.config.get('ocr', {})
+        preload_ocr = ocr_cfg.get('preload_on_startup', True)
+        if pipeline_cfg.get('enable_ocr', False) and preload_ocr:
+            logger.info("Preloading OCR processor during startup")
+            try:
+                image_processor._get_ocr_processor()
+                logger.info("OCR processor preloaded successfully")
+            except Exception as preload_err:
+                logger.warning(
+                    f"OCR preload failed, will retry lazily on request: {preload_err}",
+                    exc_info=True,
+                )
         
         logger.info("Services initialized successfully")
         
