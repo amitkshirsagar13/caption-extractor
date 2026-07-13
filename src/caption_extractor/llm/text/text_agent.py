@@ -125,8 +125,8 @@ CONFIDENCE:
                 result['language_code'] = lang_info.get('code', '')
                 # Mark needTranslation = True when detected language is not English
                 need_translation = False
-                code = (lang_info.get('code') or '').lower()
-                name = (lang_info.get('language') or '').lower()
+                code = (lang_info.get('code') or 'unknown').lower()
+                name = (lang_info.get('language') or 'unknown').lower()
                 if code and code != 'en' and code != 'eng':
                     need_translation = True
                 elif name and 'english' not in name and name != 'en':

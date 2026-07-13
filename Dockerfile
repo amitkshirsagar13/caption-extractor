@@ -19,6 +19,7 @@ RUN apt-get update \
         ca-certificates \
         curl \
         gcc \
+        libgomp1 \
         libgl1 \
         libglib2.0-0 \
         libsm6 \
@@ -31,44 +32,48 @@ ENV PADDLE_DISABLE_ONEDNN=1
 ENV FLAGS_use_mkldnn=0
 ENV FLAGS_enable_pir_api=0
 
-# Setup Python 3.12 virtual environment AS ROOT so /venv is writable
+WORKDIR /app
+
+# Create non-root user and runtime directories before dependency install to avoid large chown layers
+RUN useradd -m appuser \
+    && mkdir -p /venv /app /home/appuser/.paddlex \
+    && chown -R appuser:appuser /venv /app /home/appuser/.paddlex
+USER appuser
+
+# Setup Python 3.12 virtual environment
 ENV VIRTUAL_ENV=/venv
 RUN python3.12 -m venv $VIRTUAL_ENV
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-# Create non-root user, own the venv and app dir, then switch
-RUN useradd -m appuser \
-    && chown -R appuser:appuser $VIRTUAL_ENV
-USER appuser
-WORKDIR /app
-
 # Copy dependency files first to leverage Docker cache
-COPY --chown=appuser:appuser pyproject.toml requirements.txt* ./
+COPY pyproject.toml ./
 
-# Install dependencies and update basic pip tools for 3.12 compatibility
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Install dependencies first, then remove build-only apt packages in the same layer.
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir fastapi[all] uvicorn pillow \
+    && pip install --no-cache-dir \
+        "paddlepaddle-gpu" \
+        "paddleocr>=2.9" \
+        --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/ \
+    && rm -rf /home/appuser/.cache/pip
 
-RUN if [ -f requirements.txt ]; then \
-        pip install --no-cache-dir -r requirements.txt; \
-    else \
-        pip install --no-cache-dir fastapi[all] uvicorn pillow; \
-    fi
+# Return to root only for apt cleanup of build-only packages
+USER root
+RUN apt-get purge -y --auto-remove \
+        build-essential \
+        curl \
+        gcc \
+        python3.12-dev \
+        software-properties-common \
+    && rm -rf /var/lib/apt/lists/* /root/.cache/pip
+USER appuser
 
-# Install stable configurations matching Python 3.12 index bindings
-RUN pip install --no-cache-dir \
-            "paddlepaddle-gpu" \
-            "paddleocr>=2.9" \
-            --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/
+# Copy only runtime app files to avoid bringing unnecessary build context into layers
+COPY --chown=appuser:appuser src/ /app/src/
+COPY --chown=appuser:appuser start_api.py /app/start_api.py
 
-# Copy application source
-COPY --chown=appuser:appuser . .
-
-# Seed PaddleOCR model cache
-# Create the target directory structure
-RUN mkdir -p /home/appuser/.paddlex
-
-# Copy the contents of your local .paddlex folder internally inside the container
-RUN cp -r models/.paddlex/. /home/appuser/.paddlex/
+# Seed PaddleOCR model cache directly (avoids duplicate copy under /app/models)
+COPY --chown=appuser:appuser models/.paddlex/ /home/appuser/.paddlex/
 
 # Pre-populate config
 COPY --chown=appuser:appuser config.docker.yml /app/config.yml

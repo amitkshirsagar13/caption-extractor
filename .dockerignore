@@ -13,3 +13,12 @@ data/
 .mypy_cache/
 logs/
 examples/
+docs/
+tests/
+test_data/
+test_models/
+
+# Keep only pre-bundled model cache used at build time.
+models/*
+!models/.paddlex/
+!models/.paddlex/**

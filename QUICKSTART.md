@@ -14,15 +14,15 @@ python -m caption_extractor.main --config config.yml --input-folder ./images
 ```bash
 cd /home/kira/git/devopsnextgenx/caption-extractor
 
-docker build -t amitkshirsagar13/caption-extractor .
+docker build -t docker.io/amitkshirsagar13/caption-extractor .
 
 docker run --rm \
   --device nvidia.com/gpu=all \
   -p 127.0.0.1:8000:8000 \
   -v /media/data/xos:/media/data \
-  -v /home/kira/git/devopsnextgenx/caption-extractor/config.yml:/app/config.yml \
+  -v /home/shared/services/caption-extractor/config.docker.yml:/app/config.yml \
   -v /var/tmp:/app/logs \
-  amitkshirsagar13/caption-extractor
+  docker.io/amitkshirsagar13/caption-extractor
 
 ```
 
