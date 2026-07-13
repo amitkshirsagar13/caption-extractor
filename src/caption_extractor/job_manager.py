@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Directory to store job state files
-JOBS_DIR = Path(__file__).parent.parent / ".jobs"
+JOBS_DIR = Path(os.getenv("PIXTOR_JOBS_DIR", Path(__file__).parent.parent / ".jobs"))
 JOBS_DIR.mkdir(exist_ok=True)
 
 job_locks: Dict[str, threading.Lock] = {}
@@ -42,6 +42,17 @@ def create_job(folder_path: str) -> str:
 def get_job(job_id: str) -> Dict[str, Any]:
     return _load_job(job_id)
 
+def delete_job_data(job_id: str):
+    """Delete a job's tracking file if it is not currently running."""
+    job = _load_job(job_id)
+    if job.get("status") in ["running", "queued"]:
+        raise ValueError("Cannot delete an active or queued job.")
+    
+    job_file = JOBS_DIR / f"{job_id}.json"
+    if job_file.exists():
+        job_file.unlink()
+    job_locks.pop(job_id, None)
+
 def update_job_status(job_id: str, status: str):
     lock = job_locks.get(job_id)
     if not lock:
@@ -66,6 +77,14 @@ def add_processed_image(job_id: str, image_path: str):
         # Update progress percent based on total images count if known
         job["updated_at"] = time.time()
         _save_job(job_id, job)
+
+def set_eta(job_id: str, eta_seconds: int):
+    lock = job_locks.get(job_id)
+    if lock:
+        with lock:
+            job = _load_job(job_id)
+            job["eta_seconds"] = eta_seconds
+            _save_job(job_id, job)
 
 def set_progress(job_id: str, percent: float):
     lock = job_locks.get(job_id)

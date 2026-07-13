@@ -688,6 +688,64 @@ def run_server(config_path: str = "config.yml"):
         logger.error(f"Failed to start server: {e}", exc_info=True)
         raise
 
+# Add these endpoints to api_service.py
+
+class CleanFolderRequest(BaseModel):
+    path: str
+
+@app.post("/folders/clean")
+async def clean_folder_ymls(req: CleanFolderRequest):
+    """Deletes ONLY the .yml files that map exactly to existing images."""
+    try:
+        base_dir = Path(req.path)
+        if not base_dir.exists() or not base_dir.is_dir():
+            raise HTTPException(status_code=400, detail="Invalid directory path")
+        
+        deleted_count = 0
+        for p in base_dir.rglob("*"):
+            if p.is_file() and is_image_file(str(p)):
+                yml_sidecar = p.with_suffix(".yml")
+                if yml_sidecar.exists():
+                    yml_sidecar.unlink()
+                    deleted_count += 1
+                    
+        return {"status": "success", "deleted_files_count": deleted_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """Remove a finished or stopped job from index tracking history."""
+    try:
+        from .job_manager import delete_job_data
+        delete_job_data(job_id)
+        return {"status": "deleted", "job_id": job_id}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job records not found")
+
+# Modify startup_event to implement automatic recovery
+@app.on_event("startup")
+async def startup_event():
+    # ... your existing service startup initializations ...
+    
+    # Auto-resume routine for uncompleted container tasks
+    try:
+        from .job_manager import list_jobs, update_job_status
+        from .job_worker import check_and_start_next_job
+        
+        all_recorded_jobs = list_jobs()
+        for j in all_recorded_jobs:
+            # Re-queue any unfinished jobs abruptly terminated by a container restart
+            if j.get("status") in ["running", "queued"]:
+                update_job_status(j["job_id"], "queued")
+                
+        if image_processor:
+            check_and_start_next_job(image_processor)
+            logger.info("Checked and auto-started pending workflows safely.")
+    except Exception as startup_err:
+        logger.error(f"Job recovery routing failed: {startup_err}")
 
 if __name__ == "__main__":
     run_server()

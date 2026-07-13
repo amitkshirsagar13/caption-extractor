@@ -333,7 +333,6 @@ document
   });
 
 // --- Jobs & Folder Overlays ---
-
 function updateFolderJobsUI() {
   const containers = document.querySelectorAll(".job-overlay-container");
   containers.forEach((container) => {
@@ -343,9 +342,19 @@ function updateFolderJobsUI() {
       .sort((a, b) => b.created_at - a.created_at);
     const latestJob = folderJobs.length > 0 ? folderJobs[0] : null;
 
+    // Common styling shared by action control elements
+    const baseActionBtnStyle = `width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; cursor: pointer; pointer-events: auto; border: none; color: white;`;
+
+    // 1. Construct the persistent Clean folder button action asset
+    const cleanBtnHtml = `<button class="clean-folder-tile-btn" data-path="${path}" title="Clean Image YML Sidecars" style="${baseActionBtnStyle} background: #d9534f; margin-right: 4px;">🧹</button>`;
+
     let overlayHtml = "";
     if (!latestJob) {
-      overlayHtml = `<button class="start-job-btn" title="Start Job" style="position: absolute; top: 5px; right: 5px; background: #0066ff; color: white; border: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; cursor: pointer; pointer-events: auto;">▶</button>`;
+      overlayHtml = `
+        <div style="position: absolute; top: 5px; right: 5px; display: flex; gap: 4px;">
+            ${cleanBtnHtml}
+            <button class="start-job-btn" title="Start Job" style="${baseActionBtnStyle} background: #0066ff;">▶</button>
+        </div>`;
     } else {
       let statusColor = "#888";
       if (latestJob.status === "running") statusColor = "#4ec9b0";
@@ -355,17 +364,14 @@ function updateFolderJobsUI() {
       else if (latestJob.status === "cancelled") statusColor = "#f48771";
 
       let btnHtml = "";
-      if (
-        latestJob.status === "completed" ||
-        latestJob.status === "cancelled"
-      ) {
-        btnHtml = `<button class="start-job-btn" title="Restart Job" style="position: absolute; top: 5px; right: 5px; background: #0066ff; color: white; border: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; cursor: pointer; pointer-events: auto;">🔁</button>`;
+      if (latestJob.status === "completed" || latestJob.status === "cancelled") {
+        btnHtml = `<button class="start-job-btn" title="Restart Job" style="${baseActionBtnStyle} background: #0066ff;">🔁</button>`;
       } else if (latestJob.status === "running") {
-        btnHtml = `<button class="pause-job-btn" data-id="${latestJob.job_id}" title="Pause" style="position: absolute; top: 5px; right: 5px; background: #ce9178; color: white; border: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; cursor: pointer; pointer-events: auto;">⏸</button>`;
+        btnHtml = `<button class="pause-job-btn" data-id="${latestJob.job_id}" title="Pause" style="${baseActionBtnStyle} background: #ce9178;">⏸</button>`;
       } else if (latestJob.status === "paused") {
-        btnHtml = `<button class="resume-job-btn" data-id="${latestJob.job_id}" title="Resume" style="position: absolute; top: 5px; right: 5px; background: #4ec9b0; color: white; border: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; cursor: pointer; pointer-events: auto;">▶</button>`;
+        btnHtml = `<button class="resume-job-btn" data-id="${latestJob.job_id}" title="Resume" style="${baseActionBtnStyle} background: #4ec9b0;">▶</button>`;
       } else {
-        btnHtml = `<span title="${latestJob.status}" style="position: absolute; top: 5px; right: 5px; background: ${statusColor}; color: white; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px;">⏳</span>`;
+        btnHtml = `<span title="${latestJob.status}" style="${baseActionBtnStyle} background: ${statusColor}; cursor: default;">⏳</span>`;
       }
 
       let statusIcon = "⏳";
@@ -376,14 +382,27 @@ function updateFolderJobsUI() {
       else if (latestJob.status === "cancelled") statusIcon = "❌";
 
       overlayHtml = `
-                <div style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); border: 1px solid ${statusColor}; color: white; font-size: 0.8rem; padding: 2px 5px; border-radius: 3px; pointer-events: auto; display: flex; gap: 4px; align-items: center;">
-                    <span>${statusIcon}</span> ${latestJob.progress_percent && latestJob.status !== "completed" && latestJob.status !== "cancelled" ? "<span>" + Math.round(latestJob.progress_percent) + "%</span>" : ""}
-                </div>
+            <div style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); border: 1px solid ${statusColor}; color: white; font-size: 0.8rem; padding: 2px 5px; border-radius: 3px; pointer-events: auto; display: flex; gap: 4px; align-items: center;">
+                <span>${statusIcon}</span> ${latestJob.progress_percent && latestJob.status !== "completed" && latestJob.status !== "cancelled" ? "<span>" + Math.round(latestJob.progress_percent) + "%</span>" : ""}
+            </div>
+            <div style="position: absolute; top: 5px; right: 5px; display: flex; gap: 4px;">
+                ${cleanBtnHtml}
                 ${btnHtml}
-            `;
+            </div>
+        `;
     }
 
     container.innerHTML = overlayHtml;
+
+    // 2. Attach Event Binds for the newly injected elements
+    const cleanBtn = container.querySelector(".clean-folder-tile-btn");
+    if (cleanBtn) {
+      cleanBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Stop navigation click events bubble up to container row tile
+        const targetPath = cleanBtn.getAttribute("data-path");
+        window.cleanFolderSidecarYmls(targetPath);
+      });
+    }
 
     const startBtn = container.querySelector(".start-job-btn");
     if (startBtn) {
@@ -409,6 +428,35 @@ function updateFolderJobsUI() {
   });
 }
 
+// 3. Register Global Handler for execution tasks
+window.cleanFolderSidecarYmls = async (folderPath) => {
+  const folderDisplay = folderPath.split("/").pop();
+  if (!confirm(`Are you sure you want to clean up ONLY image-generated YML sidecars inside folder "${folderDisplay}"?`)) return;
+
+  try {
+    const response = await fetch("/folders/clean", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: folderPath })
+    });
+    
+    if (!response.ok) throw new Error(await response.text());
+    
+    const data = await response.json();
+    alert(`Cleaned up ${data.deleted_files_count || 0} valid sidecar files from folder grid layout successfully.`);
+    
+    // Dynamically refresh the folder's image display status cards if viewing inside it
+    if (typeof currentPath !== "undefined" && currentPath === folderPath) {
+        loadPath(currentPath);
+    } else {
+        fetchJobs(); // Force redrawing layout assets state
+    }
+  } catch (err) {
+    console.error("Cleanup routine failed completely:", err);
+    alert(`Error cleaning files: ${err.message}`);
+  }
+};
+
 async function fetchJobs() {
   try {
     const res = await fetch("/jobs");
@@ -426,6 +474,13 @@ async function fetchJobs() {
 document
   .getElementById("refresh-jobs-btn")
   ?.addEventListener("click", fetchJobs);
+
+function formatETA(seconds) {
+    if (!seconds || seconds <= 0) return "Calculating...";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s remaining`;
+}
 
 function renderJobs(jobs) {
   const container = document.getElementById("jobs-list");
@@ -452,21 +507,25 @@ function renderJobs(jobs) {
       cancelled: "var(--vscode-error)",
     };
     const sColor = statusColors[job.status] || "gray";
-
+    const canDelete = ["completed", "cancelled", "paused"].includes(job.status);
+    const etaString = job.status === "running" ? `<span style="margin-left: 10px; color: #aaa;">⏱️ ETA: ${formatETA(job.eta_seconds)}</span>` : "";
+    
     jobCard.innerHTML = `
             <div class="job-header">
-                <div>
-                    <strong>Folder:</strong> ${job.folder_path.split("/").pop()}
-                    <span style="font-size: 0.8rem; opacity: 0.7; margin-left: 10px;">ID: ${job.job_id}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="color: ${sColor}; font-weight: bold; text-transform: capitalize;">
-                        <span class="status-dot" style="background-color: ${sColor};"></span> ${job.status}
-                    </span>
-                    ${job.status === "running" || job.status === "queued" ? `<button onclick="pauseJob('${job.job_id}')" style="padding: 2px 8px;">Pause</button>` : ""}
-                    ${job.status === "paused" ? `<button onclick="resumeJob('${job.job_id}')" style="padding: 2px 8px;">Resume</button>` : ""}
-                    ${(job.status === "running" || job.status === "queued" || job.status === "paused") ? `<button onclick="cancelJob('${job.job_id}')" style="padding: 2px 8px; color: #f48771; border-color: #f48771;">Stop</button>` : ""}
-                </div>
+              <div>
+                  <strong>Folder:</strong> ${job.folder_path.split("/").pop()}
+                  <span style="font-size: 0.8rem; opacity: 0.7; margin-left: 10px;">ID: ${job.job_id}</span>
+                  ${etaString}
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="color: ${sColor}; font-weight: bold; text-transform: capitalize;">
+                      <span class="status-dot" style="background-color: ${sColor};"></span> ${job.status}
+                  </span>
+                  ${job.status === "running" || job.status === "queued" ? `<button onclick="pauseJob('${job.job_id}')" style="padding: 2px 8px;">Pause</button>` : ""}
+                  ${job.status === "paused" ? `<button onclick="resumeJob('${job.job_id}')" style="padding: 2px 8px;">Resume</button>` : ""}
+                  ${(job.status === "running" || job.status === "queued" || job.status === "paused") ? `<button onclick="cancelJob('${job.job_id}')" style="padding: 2px 8px; color: #f48771; border-color: #f48771;">Stop</button>` : ""}
+                  ${canDelete ? `<button onclick="deleteJobRecord('${job.job_id}')" style="padding: 2px 8px; color: #ff4d4d; border-color: #ff4d4d;">Delete</button>` : ""}
+              </div>
             </div>
             ${job.status === "running" && job.current_image ? `
             <div style="font-size: 0.78rem; color: #aaa; margin-bottom: 6px; padding: 4px 8px; background: rgba(78,201,176,0.08); border-left: 3px solid #4ec9b0; border-radius: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -484,6 +543,12 @@ function renderJobs(jobs) {
     container.appendChild(jobCard);
   });
 }
+// Register the global delete caller helper
+window.deleteJobRecord = async (jobId) => {
+    if (!confirm("Remove this job from history tracking log?")) return;
+    await fetch(`/jobs/${jobId}`, { method: "DELETE" });
+    fetchJobs(); // Update listing view
+};
 
 window.pauseJob = async (jobId) => {
   await fetch(`/jobs/${jobId}/pause`, { method: "POST" });
@@ -765,3 +830,20 @@ setInterval(() => {
     fetchJobs();
   }
 }, 3000);
+
+async function cleanCurrentFolder(folderPath) {
+    if (!confirm(`Are you sure you want to delete all generated sidecar .yml files inside: ${folderPath}?`)) return;
+    
+    try {
+        const response = await fetch("/folders/clean", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: folderPath })
+        });
+        const data = await response.json();
+        alert(`Cleaned up ${data.deleted_files_count || 0} sidecar files successfully.`);
+        loadPath(folderPath); // Refresh UI layout
+    } catch (e) {
+        console.error("Failed to clean sidecar collection assets", e);
+    }
+}

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 import yaml
 
-from .job_manager import get_job, update_job_status, add_processed_image, set_progress, set_current_image
+from .job_manager import get_job, update_job_status, add_processed_image, set_progress, set_current_image, set_eta
 from .pipeline.step_processor.single_image_processor import SingleImageProcessor
 
 logger = logging.getLogger(__name__)
@@ -79,9 +79,16 @@ def process_job_folder(
         job_data = get_job(job_id)
         processed = set(job_data.get("processed_images", []))
         
-        # Count progress
+        # Stricter check: automatically add images to processed if their sidecar .yml exists
+        for img_path in all_images:
+            if Path(img_path).with_suffix(".yml").exists() and img_path not in processed:
+                add_processed_image(job_id, img_path)
+                processed.add(img_path)
+
         completed_count = len(processed)
-        
+        start_time = time.time()
+        images_processed_this_session = 0
+
         for img_path in all_images:
             if stop_events[job_id].is_set():
                 current_job = get_job(job_id)
@@ -89,12 +96,16 @@ def process_job_folder(
                     update_job_status(job_id, "paused")
                 return
 
-            if img_path in processed:
+            if img_path in processed or Path(img_path).with_suffix(".yml").exists():
                 continue
 
             try:
                 set_current_image(job_id, img_path)
                 logger.info(f"Job {job_id} processing {img_path}")
+                
+                # Metric tracking for ETA calculations
+                loop_start = time.time()
+                
                 result = image_processor.process_image(
                     image_path=img_path,
                     enable_ocr=None,
@@ -105,24 +116,26 @@ def process_job_folder(
                     text_model=text_model
                 )
 
-                # Save extraction result as YAML next to the image
-                try:
-                    yml_path = Path(img_path).with_suffix(".yml")
-                    with open(yml_path, "w", encoding="utf-8") as f:
-                        yaml.dump(result, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-                    logger.info(f"Saved extraction result to {yml_path}")
-                except Exception as yml_err:
-                    logger.error(f"Failed to write YAML for {img_path}: {yml_err}")
+                yml_path = Path(img_path).with_suffix(".yml")
+                with open(yml_path, "w", encoding="utf-8") as f:
+                    yaml.dump(result, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
                 add_processed_image(job_id, img_path)
                 completed_count += 1
+                images_processed_this_session += 1
                 
-                percent = (completed_count / total_images) * 100
-                set_progress(job_id, percent)
+                # Compute ETA metric based on running processing history
+                elapsed_session_time = time.time() - start_time
+                avg_time_per_image = elapsed_session_time / images_processed_this_session
+                remaining_images = total_images - completed_count
+                eta_seconds = remaining_images * avg_time_per_image
+
+                # Save metrics directly to the job object for API exposure
+                set_progress(job_id, (completed_count / total_images) * 100)
+                set_eta(job_id, int(eta_seconds) if remaining_images > 0 else 0)
                 
             except Exception as e:
                 logger.error(f"Error processing {img_path} in job {job_id}: {e}")
-                # We can choose to halt or continue on error. Let's continue.
 
         update_job_status(job_id, "completed")
         set_progress(job_id, 100)
@@ -133,7 +146,6 @@ def process_job_folder(
     finally:
         active_workers.pop(job_id, None)
         stop_events.pop(job_id, None)
-        # Check if there is another queued job to run
         check_and_start_next_job(image_processor)
 
 def start_job_worker(job_id: str, folder_path: str, processor: SingleImageProcessor):
