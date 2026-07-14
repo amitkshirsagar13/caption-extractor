@@ -1,13 +1,12 @@
 import os
 import threading
-import time
 import logging
 from pathlib import Path
 from typing import Optional
-import yaml
 
 from .job_manager import get_job, update_job_status, add_processed_image, set_progress, set_current_image, set_eta
 from .pipeline.step_processor.single_image_processor import SingleImageProcessor
+from .pipeline_parallel_processor import process_job_folder_parallel
 
 logger = logging.getLogger(__name__)
 
@@ -58,90 +57,24 @@ def get_image_files(folder_path: str) -> list[str]:
     return images
 
 def process_job_folder(
-    job_id: str, 
-    folder_path: str, 
+    job_id: str,
+    folder_path: str,
     image_processor: SingleImageProcessor,
     vision_model: Optional[str] = None,
-    text_model: Optional[str] = None
+    text_model: Optional[str] = None,
 ):
+    """Process a job folder using the parallel assembly-line pipeline."""
     try:
-        update_job_status(job_id, "running")
-        stop_events[job_id] = threading.Event()
-        
-        all_images = get_image_files(folder_path)
-        total_images = len(all_images)
-        
-        if total_images == 0:
-            update_job_status(job_id, "completed")
-            set_progress(job_id, 100)
-            return
-
-        job_data = get_job(job_id)
-        processed = set(job_data.get("processed_images", []))
-        
-        # Stricter check: automatically add images to processed if their sidecar .yml exists
-        for img_path in all_images:
-            if Path(img_path).with_suffix(".yml").exists() and img_path not in processed:
-                add_processed_image(job_id, img_path)
-                processed.add(img_path)
-
-        completed_count = len(processed)
-        start_time = time.time()
-        images_processed_this_session = 0
-
-        for img_path in all_images:
-            if stop_events[job_id].is_set():
-                current_job = get_job(job_id)
-                if current_job.get("status") != "cancelled":
-                    update_job_status(job_id, "paused")
-                return
-
-            if img_path in processed or Path(img_path).with_suffix(".yml").exists():
-                continue
-
-            try:
-                set_current_image(job_id, img_path)
-                logger.info(f"Job {job_id} processing {img_path}")
-                
-                # Metric tracking for ETA calculations
-                loop_start = time.time()
-                
-                result = image_processor.process_image(
-                    image_path=img_path,
-                    enable_ocr=None,
-                    enable_image_agent=None,
-                    enable_text_agent=None,
-                    enable_translation=None,
-                    vision_model=vision_model,
-                    text_model=text_model
-                )
-
-                yml_path = Path(img_path).with_suffix(".yml")
-                with open(yml_path, "w", encoding="utf-8") as f:
-                    yaml.dump(result, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
-                add_processed_image(job_id, img_path)
-                completed_count += 1
-                images_processed_this_session += 1
-                
-                # Compute ETA metric based on running processing history
-                elapsed_session_time = time.time() - start_time
-                avg_time_per_image = elapsed_session_time / images_processed_this_session
-                remaining_images = total_images - completed_count
-                eta_seconds = remaining_images * avg_time_per_image
-
-                # Save metrics directly to the job object for API exposure
-                set_progress(job_id, (completed_count / total_images) * 100)
-                set_eta(job_id, int(eta_seconds) if remaining_images > 0 else 0)
-                
-            except Exception as e:
-                logger.error(f"Error processing {img_path} in job {job_id}: {e}")
-
-        update_job_status(job_id, "completed")
-        set_progress(job_id, 100)
-
+        process_job_folder_parallel(
+            job_id=job_id,
+            folder_path=folder_path,
+            image_processor=image_processor,
+            stop_events=stop_events,
+            vision_model=vision_model,
+            text_model=text_model,
+        )
     except Exception as e:
-        logger.error(f"Job {job_id} failed: {e}")
+        logger.error(f"Job {job_id} failed: {e}", exc_info=True)
         update_job_status(job_id, "cancelled")
     finally:
         active_workers.pop(job_id, None)

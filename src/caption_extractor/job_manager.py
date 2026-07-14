@@ -4,10 +4,14 @@ import threading
 import time
 from pathlib import Path
 from typing import List, Dict, Any
+import logging
 
 # Directory to store job state files
 JOBS_DIR = Path(os.getenv("PIXTOR_JOBS_DIR", Path(__file__).parent.parent / ".jobs"))
 JOBS_DIR.mkdir(exist_ok=True)
+
+# Get logger - logging will be configured by ConfigManager
+logger = logging.getLogger(__name__)
 
 job_locks: Dict[str, threading.Lock] = {}
 
@@ -35,6 +39,7 @@ def create_job(folder_path: str) -> str:
         "created_at": time.time(),
         "updated_at": time.time()
     }
+    logger.info(f"Creating job {job_id} for folder {folder_path}")
     _save_job(job_id, job_data)
     job_locks[job_id] = threading.Lock()
     return job_id
@@ -64,7 +69,7 @@ def update_job_status(job_id: str, status: str):
         job["updated_at"] = time.time()
         _save_job(job_id, job)
 
-def add_processed_image(job_id: str, image_path: str):
+def add_processed_image(job_id: str, image_path: str, next5images: List[str] = []):
     lock = job_locks.get(job_id)
     if not lock:
         lock = threading.Lock()
@@ -74,6 +79,7 @@ def add_processed_image(job_id: str, image_path: str):
         processed: List[str] = job.get("processed_images", [])
         processed.append(image_path)
         job["processed_images"] = processed
+        job["queued_images"] = next5images
         # Update progress percent based on total images count if known
         job["updated_at"] = time.time()
         _save_job(job_id, job)

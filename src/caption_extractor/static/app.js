@@ -498,7 +498,6 @@ function renderJobs(jobs) {
     const jobCard = document.createElement("div");
     jobCard.className = "job-card";
 
-    // Status indicator mapping
     const statusColors = {
       queued: "var(--vscode-accent)",
       running: "var(--vscode-success)",
@@ -510,6 +509,67 @@ function renderJobs(jobs) {
     const canDelete = ["completed", "cancelled", "paused"].includes(job.status);
     const etaString = job.status === "running" ? `<span style="margin-left: 10px; color: #aaa;">⏱️ ETA: ${formatETA(job.eta_seconds)}</span>` : "";
     
+    const processedImages = job.processed_images || [];
+    const processedCount = processedImages.length;
+    let totalCount = job.total_images;
+    
+    if (!totalCount && job.progress_percent > 0) {
+        totalCount = Math.round(processedCount / (job.progress_percent / 100));
+    } else if (!totalCount || job.status === "completed") {
+        totalCount = processedCount;
+    }
+
+    // --- Contextual Circular Slider Queues ---
+    let sequentialQueue = [];
+    let last5Html = "";
+    let next5Html = "";
+
+    if (job.status === "running") {
+        // 1. Map Last 5 Processed
+        const last5Array = processedImages.slice(-5);
+        const last5Mapped = last5Array.map(path => ({ path, name: path.split("/").pop() }));
+
+        // 2. Map Current Active Image
+        const currentImgObj = job.current_image ? { path: job.current_image, name: job.current_image.split("/").pop() } : null;
+
+        // 3. Map Next 5 Up from Python backend response
+        const next5Array = job.queued_images || [];
+        const next5Mapped = next5Array.map(path => ({ path, name: path.split("/").pop() }));
+
+        // Combine all valid items into the active sequential slideshow viewer scope
+        sequentialQueue = [...last5Mapped];
+        if (currentImgObj) sequentialQueue.push(currentImgObj);
+        sequentialQueue = [...sequentialQueue, ...next5Mapped];
+
+        // Generate Last 5 Row
+        if (last5Mapped.length > 0) {
+            last5Html = last5Mapped.map(img => `
+                <div class="seq-thumb-trigger" data-img-path="${img.path}" style="width: 60px; text-align: center; cursor: pointer;">
+                    <div style="width: 60px; height: 60px; background: #121216; border: 1px solid #444; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img src="/image?path=${encodeURIComponent(img.path)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span>🖼️</span>';">
+                    </div>
+                    <div style="font-size: 0.65rem; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;" title="${img.name}">${img.name}</div>
+                </div>
+            `).join('');
+        } else {
+            last5Html = `<span style="font-size: 0.75rem; color: #555; font-style: italic;">None yet</span>`;
+        }
+
+        // Generate Next 5 Row using genuine backend pending array elements
+        if (next5Mapped.length > 0) {
+            next5Html = next5Mapped.map(img => `
+                <div class="seq-thumb-trigger" data-img-path="${img.path}" style="width: 60px; text-align: center; cursor: pointer;">
+                    <div style="width: 60px; height: 60px; background: #121216; border: 1px solid #333; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; opacity: 0.6;">
+                        <img src="/image?path=${encodeURIComponent(img.path)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span>⏳</span>';">
+                    </div>
+                    <div style="font-size: 0.65rem; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;" title="${img.name}">${img.name}</div>
+                </div>
+            `).join('');
+        } else {
+            next5Html = `<span style="font-size: 0.75rem; color: #555; font-style: italic;">Queue empty</span>`;
+        }
+    }
+
     jobCard.innerHTML = `
             <div class="job-header">
               <div>
@@ -527,22 +587,56 @@ function renderJobs(jobs) {
                   ${canDelete ? `<button onclick="deleteJobRecord('${job.job_id}')" style="padding: 2px 8px; color: #ff4d4d; border-color: #ff4d4d;">Delete</button>` : ""}
               </div>
             </div>
+            
             ${job.status === "running" && job.current_image ? `
-            <div style="font-size: 0.78rem; color: #aaa; margin-bottom: 6px; padding: 4px 8px; background: rgba(78,201,176,0.08); border-left: 3px solid #4ec9b0; border-radius: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ⚙️ Processing: <span style="color: #4ec9b0; font-family: monospace;">${job.current_image.split("/").pop()}</span>
-            </div>` : ""}
+            <div class="seq-thumb-trigger" data-img-path="${job.current_image}" style="font-size: 0.78rem; color: #aaa; margin-bottom: 12px; padding: 6px 10px; background: rgba(78,201,176,0.06); border-left: 3px solid #4ec9b0; border-radius: 4px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseenter="this.style.background='rgba(78,201,176,0.12)'" onmouseleave="this.style.background='rgba(78,201,176,0.06)'">
+                <div style="width: 42px; height: 42px; background-color: #2a2d35; border: 1px solid #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                    <img src="/image?path=${encodeURIComponent(job.current_image)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 1.2rem;\\'>🖼️</span>';">
+                </div>
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <span style="display: block; font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">Currently Processing <span style="font-size: 0.6rem;">🔍 Click to track loop timeline</span></span>
+                    <span style="color: #4ec9b0; font-family: monospace; font-weight: bold; font-size: 0.85rem;">${job.current_image.split("/").pop()}</span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px;">
+                <div>
+                    <div style="font-size: 0.7rem; color: #888; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">⏮️ Last 5 Processed</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto;">${last5Html}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.7rem; color: #888; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">⏭️ Next 5 Up</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto;">${next5Html}</div>
+                </div>
+            </div>
+            ` : ""}
+
             <div class="job-progress">
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" style="width: ${job.progress_percent || 0}%; background-color: ${sColor};"></div>
                 </div>
                 <div style="text-align: right; font-size: 0.8rem; margin-top: 5px;">
-                    ${Math.round(job.progress_percent || 0)}% (${(job.processed_images || []).length} processed)
+                    ${Math.round(job.progress_percent || 0)}% (${processedCount}/${totalCount} processed)
                 </div>
             </div>
         `;
+
+    // Connect click handlers to all generated real thumbnail paths
+    jobCard.querySelectorAll(".seq-thumb-trigger").forEach((element) => {
+        element.addEventListener("click", () => {
+            const targetedPath = element.getAttribute("data-img-path");
+            currentFolderImages = sequentialQueue;
+            const indexMatch = sequentialQueue.findIndex(img => img.path === targetedPath);
+            if (indexMatch !== -1) {
+                openSlideshow(indexMatch);
+            }
+        });
+    });
+
     container.appendChild(jobCard);
   });
 }
+
 // Register the global delete caller helper
 window.deleteJobRecord = async (jobId) => {
     if (!confirm("Remove this job from history tracking log?")) return;

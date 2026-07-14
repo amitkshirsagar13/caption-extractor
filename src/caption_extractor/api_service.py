@@ -580,6 +580,7 @@ async def create_new_job(req: JobCreateRequest):
         start_job_worker(job_id, req.folder_path, image_processor)
         return {"job_id": job_id, "status": "started"}
     except Exception as e:
+        logger.error(f"Error creating job for folder {req.folder_path}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/jobs/{job_id}")
