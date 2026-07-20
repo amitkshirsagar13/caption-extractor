@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env python3
 """
 FastAPI Server Startup Script for Caption Extractor
 Usage: python start_api.py [--config config.yml]
@@ -13,8 +13,8 @@ from pathlib import Path
 src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
 
-# Import and run the server
-from caption_extractor.api_service import run_server
+# Import app at module level so uvicorn can find it
+from caption_extractor.api_service import app, run_server
 
 if __name__ == "__main__":
     import argparse
@@ -31,8 +31,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Note: logging will be configured by run_server -> ConfigManager
-    # These initial messages use print for startup visibility
     print("=" * 60)
     print("Caption Extractor API Server")
     print("=" * 60)

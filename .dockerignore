@@ -1,0 +1,24 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+
+preset/
+data/
+.pytest_cache/
+.mypy_cache/
+logs/
+examples/
+docs/
+tests/
+test_data/
+test_models/
+
+# Keep only pre-bundled model cache used at build time.
+models/*
+!models/.paddlex/
+!models/.paddlex/**

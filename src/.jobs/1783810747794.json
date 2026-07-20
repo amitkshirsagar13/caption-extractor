@@ -1,0 +1,12 @@
+{
+  "job_id": "1783810747794",
+  "folder_path": "/media/data/xos/actresses/1/1",
+  "status": "completed",
+  "processed_images": [
+    "/media/data/xos/actresses/1/1/Kiss.jpg"
+  ],
+  "progress_percent": 100,
+  "created_at": 1783810747.7944074,
+  "updated_at": 1783810793.9896867,
+  "current_image": "/media/data/xos/actresses/1/1/Kiss.jpg"
+}

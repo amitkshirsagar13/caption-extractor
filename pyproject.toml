@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "OCR text extraction from images using PaddleOCR PP-OCRv5"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 authors = [
     {name = "Caption Extractor Team"},
 ]
@@ -24,8 +24,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "paddlepaddle>=2.5.0,<3.0.0",
-    "paddleocr>=2.7.0,<2.8.0",
+    "paddlepaddle-gpu>=3.0.0,<=3.1.1",
+    "paddleocr>=3.7.0",
     "pyyaml>=6.0",
     "pillow>=10.0.0",
     "opencv-python-headless>=4.8.0",
@@ -39,7 +39,6 @@ dependencies = [
     "jinja2>=3.1.0",
 ]
 
-[project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -47,6 +46,11 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.0.0",
 ]
+
+[[tool.uv.index]]
+name = "paddlepaddle"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
+explicit = true
 
 [project.urls]
 Homepage = "https://github.com/devopsnextgenx/caption-extractor"
@@ -81,7 +85,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
